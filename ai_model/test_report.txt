@@ -1,0 +1,71 @@
+=======================================================
+  RepoAI Model — Test Report
+=======================================================
+
+Overall score: 45.0%
+Verdict: 🟡 OK    — Acceptable quality
+
+── Per-Question Results ──
+
+[60%] Repo Overview: What does the psf/requests repository do?
+       → psf/requests is a popular Python project on GitHub with 87,276 stars. Requests is an open-source Python project with 108,287 stars. Python composable 
+
+[40%] Repo Overview: What does the pallets/flask repository do?
+       → pallets/flask is a popular Python project on GitHub with 57,247 stars. Python composable command line interface toolkit It is commonly used for: flax,
+
+[80%] Installation: How do I install requests?
+       → To install requests: **Via package manager:** bash git clone https://github.com/Requests.git cd requests  **About:** A simple, yet elegant, HTTP libra
+
+[80%] Architecture: Explain the architecture of pallets/flask.
+       → ## Architecture of pallets/flask The project is organized into 10 main directories, following standard Python project conventions. **Language:** Pytho
+
+[80%] Auth: Which file handles authentication in django/django?
+       → Authentication in django/djanego is handled in: - .github/workflows/security.yml - These files manage user authentication, session handling, and secur
+
+[100%] Entry Points: What are the main entry points of pallets/flask?
+       → The main entry points are: - plugin/flask/stdout/sync/src/flags/spy/svc/test.py These files initialize the flask application and start execution.
+
+[20%] README Gen: Generate a professional README.md for the psf/requests repository.
+       → # psf/requests is a popular Python project on GitHub with 87,276 stars. A simple, yet elegant, HTTP library. It's widely used by developers and has an
+
+[60%] Complexity: Which files have the highest complexity in django/django?
+       → These handle the core logic of the project. Use radon cc file> -s (Python), go.mod (Go), or requirements.txt (Rust) to get exact cyclomatic complexity
+
+[20%] Generic: What is cyclomatic complexity and why does it matter?
+       → cyclomatic complexity is defined as: - requirements.txt **Language:** Python | **Cyclomatic complexity:** - None of the above.
+
+[20%] Generic: What is a dependency graph in software?
+       → dependency graph is a graph of dependencies in a software project. Dependencies are defined by: - requirements.txt + compiler.toml - None of these dep
+
+[0%] Generic: What does RAG mean in AI?
+       → RAG is a programming language used in AI. It is widely used by developers and has an active open-source community.
+
+[20%] Generic: What is a circular dependency and how do I fix it?
+       → circular dependency is a common problem in JavaScript and TypeScript. It is commonly defined as: requirements.txt, compiler.toml, or def __init__. Che
+
+[0%] Generic: How do I improve a file with high complexity?
+       → To improve a file with high complexity: 1. **Create a branch:** bash git clone https://github.com/google/complexity.git cd complex  2. **Study the cod
+
+[20%] Contributing: How can I contribute to expressjs/express?
+       → To contribute to expressjs/express: 1. Read CONTRIBUTING.md in the repo 2. To create a branch: git checkout -b fix/your-fix 3. Make changes + write te
+
+[75%] Testing: How do I run the tests for expressjs/express?
+       → To run tests for expressjs/express: bash pytest  **Test files found:** - .github/workflows/tests.yml - Check CONTRIBUTING.md or REQUEST A QUESTION.txt
+
+── Test File Results ──
+Avg overlap: 56.6%
+
+[80%] How do I add a new feature to pallets/flask?
+       → To add a new feature to pallets/flask: 1. **Fork and clone:** bash git checkout 
+
+[25%] List the source files in the microsoft/TypeScript repository.
+       → The main source files in microsoft/TypeScript are: - .github/workflows/typescrip
+
+[66%] Explain the file `compiler/.eslintrc.js` in the facebook/react reposit
+       → ## .eslintrc.js in facebook/react **Language:** js | **Lines:** 10 **Purpose:** 
+
+[59%] Explain the file `deps/fast_float/fast_float_strtod.cpp` in the redis/
+       → ## fast_float_strtod.cpp in redis/redis **Language:** cpp | **Lines:** 334 **Pur
+
+[35%] Explain the file `compiler/apps/playground/__tests__/e2e/page.spec.ts`
+       → ## page.spec.ts in facebook/react **Language:** ts | **Lines:** 10 **Purpose:** 

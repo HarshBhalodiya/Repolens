@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dashboard — RepoLens</title>
+  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
+    rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            "primary": "#0051ae", "primary-container": "#0969da", "on-primary": "#ffffff",
+            "secondary": "#515f74", "secondary-container": "#d5e3fc", "on-secondary-container": "#57657a",
+            "tertiary": "#691dda", "on-tertiary": "#ffffff",
+            "surface": "#f7f9fb", "surface-container": "#eceef0", "surface-container-high": "#e6e8ea",
+            "surface-container-highest": "#e0e3e5", "surface-container-low": "#f2f4f6", "surface-container-lowest": "#ffffff",
+            "on-surface": "#191c1e", "on-surface-variant": "#424753",
+            "outline": "#727785", "outline-variant": "#c2c6d6",
+            "secondary-fixed": "#d5e3fc", "on-secondary-fixed-variant": "#3a485b",
+            "primary-fixed": "#d8e2ff",
+            "error": "#ba1a1a", "error-container": "#ffdad6", "on-error-container": "#93000a",
+          },
+          fontFamily: { sans: ["Inter", "sans-serif"], mono: ["JetBrains Mono", "monospace"] },
+          borderRadius: { DEFAULT: "0.375rem", lg: "0.625rem", xl: "0.875rem" }
+        }
+      }
+    }
+  </script>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+      display: inline-block;
+      line-height: 1;
+      text-transform: none;
+      letter-spacing: normal;
+      word-wrap: normal;
+      white-space: nowrap;
+      direction: ltr;
+      font-family: 'Material Symbols Outlined';
+    }
+
+    .fill {
+      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+
+    .ai-gradient {
+      background: linear-gradient(135deg, #0051ae 0%, #0969da 100%);
+    }
+
+    .glass {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(12px);
+    }
+
+    .scroll {
+      scrollbar-width: thin;
+      scrollbar-color: #c2c6d6 transparent;
+    }
+
+    .scroll::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .scroll::-webkit-scrollbar-thumb {
+      background: #c2c6d6;
+      border-radius: 10px;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg)
+      }
+    }
+
+    @keyframes bounce {
+
+      0%,
+      100% {
+        transform: translateY(0)
+      }
+
+      50% {
+        transform: translateY(-5px)
+      }
+    }
+
+    @keyframes pulse {
+
+      0%,
+      100% {
+        opacity: 1
+      }
+
+      50% {
+        opacity: 0.3
+      }
+    }
+
+    @keyframes fade-in {
+      from {
+        opacity: 0;
+        transform: translateY(6px)
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0)
+      }
+    }
+
+    .spin {
+      animation: spin 1s linear infinite;
+    }
+
+    .b1 {
+      animation: bounce 1.2s ease-in-out infinite;
+      animation-delay: 0ms;
+    }
+
+    .b2 {
+      animation: bounce 1.2s ease-in-out infinite;
+      animation-delay: 180ms;
+    }
+
+    .b3 {
+      animation: bounce 1.2s ease-in-out infinite;
+      animation-delay: 360ms;
+    }
+
+    .pulse-dot {
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    .fade-in {
+      animation: fade-in 0.3s ease forwards;
+    }
+
+    .tab-btn {
+      border-bottom: 2px solid transparent;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .tab-btn.active {
+      border-color: #0051ae;
+      color: #0051ae;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    .file-row {
+      border-left: 2px solid transparent;
+      transition: background 0.1s;
+    }
+
+    .file-row.selected {
+      border-color: #0051ae;
+      background: rgba(0, 81, 174, 0.05);
+      color: #0051ae;
+    }
+
+    .file-row:not(.selected):hover {
+      background: #eceef0;
+    }
+
+    .chat-user {
+      background: #0051ae;
+      color: #fff;
+      border-radius: 1rem 1rem 0.25rem 1rem;
+    }
+
+    .chat-ai {
+      background: #fff;
+      border: 1px solid rgba(194, 198, 214, 0.35);
+      border-radius: 1rem 1rem 1rem 0.25rem;
+    }
+
+    /* D3 Graph */
+    #graph-svg .link {
+      stroke: #c2c6d6;
+      stroke-opacity: 0.65;
+    }
+
+    #graph-svg .node circle {
+      cursor: pointer;
+      transition: r 0.15s;
+    }
+
+    #graph-svg .node text {
+      font-family: 'JetBrains Mono', monospace;
+      pointer-events: none;
+      fill: #424753;
+    }
+
+    /* README rendered */
+    .readme h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      margin: 0 0 0.5rem;
+      color: #191c1e;
+    }
+
+    .readme h2 {
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin: 1.2rem 0 0.4rem;
+      color: #191c1e;
+    }
+
+    .readme h3 {
+      font-size: 0.95rem;
+      font-weight: 600;
+      margin: 0.8rem 0 0.3rem;
+      color: #424753;
+    }
+
+    .readme p {
+      margin-bottom: 0.5rem;
+      color: #424753;
+      line-height: 1.7;
+      font-size: 0.855rem;
+    }
+
+    .readme code {
+      background: #d5e3fc;
+      padding: 0.1rem 0.4rem;
+      border-radius: 4px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.77rem;
+      color: #3a485b;
+    }
+
+    .readme pre {
+      background: #1a1d20;
+      color: #e5e7eb;
+      padding: 1rem 1.2rem;
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      margin: 0.6rem 0;
+    }
+
+    .readme pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      font-size: 0.8rem;
+    }
+
+    .readme ul,
+    .readme ol {
+      margin-left: 1.2rem;
+      margin-bottom: 0.5rem;
+    }
+
+    .readme li {
+      margin-bottom: 0.2rem;
+      color: #424753;
+      font-size: 0.855rem;
+    }
+
+    .readme a {
+      color: #0051ae;
+      text-decoration: underline;
+    }
+
+    .readme hr {
+      border: none;
+      border-top: 1px solid #e6e8ea;
+      margin: 1rem 0;
+    }
+
+    .readme strong {
+      color: #191c1e;
+      font-weight: 600;
+    }
+
+    .readme blockquote {
+      border-left: 3px solid #0969da;
+      padding-left: 0.8rem;
+      color: #57657a;
+      font-style: italic;
+      margin: 0.5rem 0;
+    }
+
+    .readme table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.82rem;
+      margin: 0.5rem 0;
+    }
+
+    .readme th {
+      background: #f2f4f6;
+      padding: 0.4rem 0.7rem;
+      text-align: left;
+      font-weight: 600;
+      border: 1px solid #e0e3e5;
+    }
+
+    .readme td {
+      padding: 0.4rem 0.7rem;
+      border: 1px solid #e0e3e5;
+    }
+
+    input,
+    textarea {
+      outline: none !important;
+      box-shadow: none !important;
+    }
+  </style>
+</head>
+
+<body class="bg-surface text-on-surface h-screen w-screen overflow-hidden flex flex-col">
+
+  <!-- HEADER -->
+  <header
+    class="flex items-center justify-between px-5 py-2.5 bg-surface border-b border-surface-container-high z-10 shrink-0">
+    <div class="flex items-center gap-5">
+      <a href="index.html" class="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
+        <div class="size-8 ai-gradient rounded-lg flex items-center justify-center text-white">
+          <span class="material-symbols-outlined fill" style="font-size:18px">terminal</span>
+        </div>
+        <span class="text-sm font-bold tracking-tight">RepoLens</span>
+      </a>
+      <div class="h-5 w-px bg-surface-container-highest"></div>
+      <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-low rounded-lg">
+        <span class="material-symbols-outlined fill text-primary" style="font-size:14px">account_tree</span>
+        <span id="header-repo" class="text-xs font-medium text-on-surface-variant font-mono">loading...</span>
+        <span class="material-symbols-outlined text-outline" style="font-size:14px">chevron_right</span>
+        <span id="header-branch" class="text-xs text-on-surface-variant">main</span>
+      </div>
+      <!-- Stats pills -->
+      <div class="hidden sm:flex items-center gap-2">
+        <span id="pill-files"
+          class="px-2 py-0.5 bg-surface-container rounded-full text-[10px] font-mono text-on-surface-variant">?
+          files</span>
+        <span id="pill-lines"
+          class="px-2 py-0.5 bg-surface-container rounded-full text-[10px] font-mono text-on-surface-variant">?
+          lines</span>
+        <span id="pill-lang"
+          class="px-2 py-0.5 bg-secondary-container rounded-full text-[10px] font-bold text-on-secondary-fixed-variant">?</span>
+      </div>
+    </div>
+    <div class="flex items-center gap-3">
+      <div class="flex items-center bg-surface-container-highest rounded-lg px-3 py-1.5 w-48">
+        <span class="material-symbols-outlined text-on-surface-variant mr-2" style="font-size:15px">search</span>
+        <input id="file-search" type="text" placeholder="Filter files..." oninput="filterTree()"
+          class="bg-transparent border-none text-xs w-full p-0 placeholder:text-outline" />
+      </div>
+      <a href="index.html"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high text-xs font-medium transition-colors">
+        <span class="material-symbols-outlined" style="font-size:15px">add</span>
+        New Repo
+      </a>
+    </div>
+  </header>
+
+  <div class="flex flex-1 overflow-hidden">
+
+    <!-- SIDEBAR: File Explorer -->
+    <aside class="w-64 bg-surface-container-low flex flex-col border-r border-transparent shrink-0">
+      <div class="px-4 py-3 flex items-center justify-between border-b border-outline-variant/10">
+        <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Explorer</span>
+        <button onclick="toggleFolders()" class="text-primary text-[10px] font-semibold hover:underline">Toggle
+          All</button>
+      </div>
+      <nav id="file-tree" class="flex-1 overflow-y-auto px-2 py-1.5 scroll space-y-px"></nav>
+      <div class="p-3 border-t border-outline-variant/10 space-y-2">
+        <button onclick="explainSelectedFile()"
+          class="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-secondary-container text-on-secondary-fixed-variant rounded-lg text-xs font-bold hover:opacity-90 transition-all">
+          <span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span>
+          Explain Selected File
+        </button>
+        <button onclick="triggerReadme()"
+          class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest text-on-surface-variant rounded-lg text-xs font-semibold hover:bg-surface-container-high transition-all">
+          <span class="material-symbols-outlined" style="font-size:14px">description</span>
+          Generate README
+        </button>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT -->
+    <main class="flex-1 bg-surface-container-lowest flex flex-col overflow-hidden">
+
+      <!-- Tabs -->
+      <div class="flex border-b border-surface-container px-5 shrink-0">
+        <button class="tab-btn active px-5 py-3.5 text-xs font-bold" onclick="switchTab('summary',this)">
+          <span class="material-symbols-outlined"
+            style="font-size:14px;vertical-align:middle;margin-right:4px">dashboard</span>Summary
+        </button>
+        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface"
+          onclick="switchTab('graph',this)">
+          <span class="material-symbols-outlined"
+            style="font-size:14px;vertical-align:middle;margin-right:4px">hub</span>Dependency Graph
+        </button>
+        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface"
+          onclick="switchTab('complexity',this)">
+          <span class="material-symbols-outlined"
+            style="font-size:14px;vertical-align:middle;margin-right:4px">analytics</span>Complexity
+        </button>
+        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface"
+          id="readme-tab-btn" onclick="switchTab('readme',this)">
+          <span class="material-symbols-outlined"
+            style="font-size:14px;vertical-align:middle;margin-right:4px">description</span>README
+        </button>
+      </div>
+
+      <!-- ── TAB: Summary ── -->
+      <div id="tab-summary" class="tab-content active overflow-y-auto p-7 scroll">
+        <div class="w-full space-y-8">
+          <div>
+            <h1 id="sum-name" class="text-2xl font-bold tracking-tight text-on-surface mb-1.5">Loading...</h1>
+            <p id="sum-desc" class="text-on-surface-variant text-sm leading-relaxed"></p>
+            <div class="flex flex-wrap gap-2 mt-3" id="sum-topics"></div>
+          </div>
+
+          <!-- Stat cards -->
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div class="p-4 rounded-xl bg-surface-container-low">
+              <div class="text-2xl font-black text-on-surface mb-0.5" id="s-files">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Files Analyzed
+              </div>
+            </div>
+            <div class="p-4 rounded-xl bg-surface-container-low">
+              <div class="text-2xl font-black text-on-surface mb-0.5" id="s-lines">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Total Lines</div>
+            </div>
+            <div class="p-4 rounded-xl bg-surface-container-low">
+              <div class="text-2xl font-black text-on-surface mb-0.5" id="s-funcs">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Functions</div>
+            </div>
+            <div class="p-4 rounded-xl bg-surface-container-low">
+              <div class="text-2xl font-black text-primary mb-0.5" id="s-cmplx">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Avg Complexity
+              </div>
+            </div>
+          </div>
+
+          <!-- Graph insights -->
+          <div id="graph-insights" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
+
+          <!-- Complexity heatmap table -->
+          <div>
+            <h3 class="text-sm font-bold text-on-surface mb-4">Complexity Heatmap</h3>
+            <div
+              class="overflow-hidden rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm">
+              <table class="w-full text-left">
+                <thead class="bg-surface-container-low">
+                  <tr class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
+                    <th class="px-5 py-3">File</th>
+                    <th class="px-5 py-3">Score</th>
+                    <th class="px-5 py-3">Grade</th>
+                    <th class="px-5 py-3 text-right">Lines</th>
+                  </tr>
+                </thead>
+                <tbody id="heat-table" class="divide-y divide-surface-container text-xs"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Dep graph placeholder -->
+          <div
+            class="h-44 rounded-2xl bg-surface-container border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center gap-3">
+            <span class="material-symbols-outlined text-outline-variant" style="font-size:36px">hub</span>
+            <p class="text-on-surface-variant text-sm font-medium">Interactive Dependency Graph</p>
+            <button onclick="switchTab('graph', document.querySelectorAll('.tab-btn')[1])"
+              class="px-4 py-1.5 bg-surface-container-lowest text-primary border border-primary/30 rounded-lg text-xs font-bold hover:bg-primary/5 transition-colors">Open
+              Graph →</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: Dependency Graph ── -->
+      <div id="tab-graph" class="tab-content">
+        <div
+          class="flex items-center justify-between px-6 py-3.5 border-b border-surface-container bg-surface-container-lowest shrink-0">
+          <div>
+            <h3 class="text-sm font-bold text-on-surface">Import Dependency Graph</h3>
+            <p class="text-xs text-on-surface-variant mt-0.5" id="graph-subtitle">Nodes = files · Arrows = import
+              relationships · Drag to rearrange · Scroll to zoom</p>
+          </div>
+          <div class="flex items-center gap-5 text-xs text-on-surface-variant">
+            <div class="flex items-center gap-1.5">
+              <div class="size-3 rounded-full bg-blue-500 opacity-80"></div>Low
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="size-3 rounded-full bg-yellow-400"></div>Medium
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="size-3 rounded-full bg-orange-500"></div>High
+            </div>
+            <div class="flex items-center gap-1.5">
+              <div class="size-3 rounded-full bg-red-500"></div>Critical
+            </div>
+            <button onclick="renderGraph()"
+              class="ml-2 px-3 py-1 bg-surface-container rounded-lg hover:bg-surface-container-high transition-colors text-[12px] font-semibold">↺
+              Reset</button>
+          </div>
+        </div>
+        <div class="flex-1 relative overflow-hidden bg-surface-container-low" id="graph-area">
+          <svg id="graph-svg" class="w-full h-full"></svg>
+          <div id="graph-tooltip"
+            class="hidden absolute bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-44 max-w-56">
+          </div>
+        </div>
+      </div>
+
+      <!-- ── TAB: Complexity ── -->
+      <div id="tab-complexity" class="tab-content overflow-y-auto p-7 scroll">
+        <div class="w-full">
+          <div class="flex items-center justify-between mb-6">
+            <h3 class="text-sm font-bold text-on-surface">Code Quality Analysis</h3>
+            <div class="flex items-center gap-3 text-xs text-on-surface-variant">
+              <span>Sort by:</span>
+              <select id="sort-select" onchange="renderComplexityCards()"
+                class="text-xs bg-surface-container border-none rounded-lg px-2 py-1 text-on-surface-variant cursor-pointer">
+                <option value="score">Complexity</option>
+                <option value="lines">Lines of Code</option>
+                <option value="functions">Functions</option>
+              </select>
+            </div>
+          </div>
+          <div id="complexity-cards" class="space-y-3"></div>
+        </div>
+      </div>
+
+      <!-- ── TAB: README ── -->
+      <div id="tab-readme" class="tab-content overflow-y-auto p-7 scroll">
+        <div class="w-full">
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-sm font-bold text-on-surface">Auto-Generated README</h3>
+            <div class="flex gap-2">
+              <button onclick="generateReadme()" id="readme-btn"
+                class="flex items-center gap-1.5 px-3.5 py-2 ai-gradient text-on-primary rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
+                <span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span>
+                Generate with AI
+              </button>
+              <button onclick="copyReadme()"
+                class="flex items-center gap-1.5 px-3 py-2 bg-surface-container text-on-surface-variant rounded-lg text-xs font-semibold hover:bg-surface-container-high transition-colors">
+                <span class="material-symbols-outlined" style="font-size:14px">content_copy</span>
+                Copy
+              </button>
+            </div>
+          </div>
+          <div id="readme-output"
+            class="readme bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/15 min-h-64">
+            <div class="flex flex-col items-center justify-center h-40 gap-3 text-center">
+              <span class="material-symbols-outlined text-outline-variant" style="font-size:40px">description</span>
+              <p class="text-sm text-on-surface-variant">Click "Generate with AI" to create a professional README using
+                Claude</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </main><!-- /MAIN -->
+
+    <!-- RIGHT: AI Chat -->
+    <aside class="w-80 bg-surface-container-low border-l border-surface-container flex flex-col shrink-0">
+      <div
+        class="px-4 py-3 border-b border-surface-container bg-surface-container-lowest flex items-center justify-between shrink-0">
+        <div class="flex items-center gap-2">
+          <span class="material-symbols-outlined fill text-tertiary" style="font-size:18px">auto_awesome</span>
+          <span class="text-xs font-bold tracking-tight">Repo AI Assistant</span>
+        </div>
+        <div class="flex items-center gap-1.5">
+          <div class="size-1.5 rounded-full bg-green-500 pulse-dot"></div>
+          <span class="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">Online</span>
+        </div>
+      </div>
+
+      <!-- Messages -->
+      <div id="chat-messages" class="flex-1 overflow-y-auto p-3.5 space-y-3.5 scroll"></div>
+
+      <!-- Input -->
+      <div class="p-3 bg-surface-container-lowest border-t border-surface-container shrink-0">
+        <!-- Quick prompts -->
+        <div class="flex flex-wrap gap-1.5 mb-2.5">
+          <button onclick="sendQuick('What does this repo do?')"
+            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">What
+            does it do?</button>
+          <button onclick="sendQuick('Which file handles authentication?')"
+            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">Auth
+            logic?</button>
+          <button onclick="sendQuick('What are the main entry points of this project?')"
+            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">Entry
+            points?</button>
+          <button onclick="sendQuick('How do I add a new API endpoint following the existing patterns?')"
+            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">Add
+            endpoint?</button>
+        </div>
+        <div class="relative flex items-end gap-2">
+          <div
+            class="flex-1 bg-surface-container rounded-xl overflow-hidden focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-primary/20 transition-all border border-transparent focus-within:border-primary/30">
+            <textarea id="chat-input" rows="1" placeholder="Ask about this repo..."
+              class="w-full bg-transparent border-none text-xs p-3 resize-none max-h-28"
+              onkeydown="onChatKey(event)"></textarea>
+          </div>
+          <button onclick="sendChat()"
+            class="size-10 flex items-center justify-center rounded-xl ai-gradient text-white shadow-lg hover:shadow-primary/30 transition-shadow shrink-0">
+            <span class="material-symbols-outlined" style="font-size:18px">send</span>
+          </button>
+        </div>
+        <p class="text-[9px] text-center text-outline mt-2">Powered by Claude · RAG via ChromaDB</p>
+      </div>
+    </aside>
+
+  </div><!-- /flex -->
+
+  <script>
+    const API = "http://localhost:5000/api";
+
+    // ── State ──────────────────────────────────
+    let repoData = null;      // full API response from /analyze
+    let repoKey = "";
+    let selectedFile = null;
+    let chatHistory = [];
+    let readmeRaw = "";
+    let complexityData = [];
+    let graphData = null;
+
+    // ── Init ──────────────────────────────────
+    window.onload = async function () {
+      const raw = sessionStorage.getItem('repoData');
+      const repoKeyOnly = sessionStorage.getItem('repoKey');
+
+      if (!raw && !repoKeyOnly) {
+        window.location.href = 'index.html';
+        return;
+      }
+
+      if (raw) {
+        repoData = JSON.parse(raw);
+        if (repoData?.repo_key) {
+          sessionStorage.setItem('repoKey', repoData.repo_key);
+        }
+      } else {
+        const resp = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKeyOnly)}`);
+        if (!resp.ok) {
+          window.location.href = 'index.html';
+          return;
+        }
+        repoData = await resp.json();
+      }
+
+      repoKey = repoData.repo_key || repoData.meta?.full_name || repoKeyOnly || "";
+      // Validate backend still has this repository (server may have restarted).
+      try {
+        const verify = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKey)}`);
+        if (verify.ok) {
+          repoData = await verify.json();
+        } else if (verify.status === 404) {
+          sessionStorage.removeItem('repoData');
+          addMsg('ai', '<span class="text-error">Backend restarted and no longer has this repo in memory. Please go back and run Analyze again.</span>', true);
+          return;
+        }
+      } catch (e) {
+        // Keep existing UI data if health check fails; chat handlers already show network errors.
+      }
+
+      complexityData = repoData.complexity || [];
+      graphData = repoData.graph || null;
+
+      // Tab panel display fix
+      document.querySelectorAll('.tab-content').forEach((el, i) => {
+        el.style.display = i === 0 ? 'flex' : 'none';
+        el.style.flex = '1';
+        el.style.overflow = 'hidden';
+      });
+      document.getElementById('tab-summary').style.overflow = 'auto';
+
+      populateHeader();
+      populateSummary();
+      renderFileTree(repoData.file_tree || []);
+      renderHeatTable();
+      renderGraphInsights();
+      renderComplexityCards();
+      initChat();
+    };
+
+    // ── Header ────────────────────────────────
+    function populateHeader() {
+      const m = repoData.meta;
+      document.getElementById('header-repo').textContent = m.full_name;
+      document.getElementById('header-branch').textContent = m.default_branch || 'main';
+      document.getElementById('pill-files').textContent = repoData.stats?.total_files + ' files';
+      document.getElementById('pill-lines').textContent = fmtNum(repoData.stats?.total_lines) + ' lines';
+      document.getElementById('pill-lang').textContent = m.language || '?';
+      document.title = m.full_name + ' — RepoAI';
+    }
+
+    // ── Summary ───────────────────────────────
+    function populateSummary() {
+      const m = repoData.meta;
+      const s = repoData.stats;
+      document.getElementById('sum-name').textContent = m.full_name;
+      document.getElementById('sum-desc').textContent = m.description || '';
+      document.getElementById('s-files').textContent = s?.total_files ?? '–';
+      document.getElementById('s-lines').textContent = fmtNum(s?.total_lines);
+      document.getElementById('s-funcs').textContent = fmtNum(s?.total_functions);
+      document.getElementById('s-cmplx').textContent = s?.avg_complexity ?? '–';
+
+      // Topics
+      const topics = m.topics || [];
+      document.getElementById('sum-topics').innerHTML = topics.map(t =>
+        `<span class="px-2.5 py-0.5 bg-secondary-container text-on-secondary-fixed-variant text-[10px] font-semibold rounded-full">${t}</span>`
+      ).join('');
+    }
+
+    // ── Graph Insights ─────────────────────────
+    function renderGraphInsights() {
+      const g = graphData?.metrics;
+      if (!g) return;
+      const el = document.getElementById('graph-insights');
+      el.innerHTML = `
+    <div class="p-4 rounded-xl bg-surface-container-low">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="material-symbols-outlined text-primary" style="font-size:18px">hub</span>
+        <span class="text-xs font-bold text-on-surface">Dependency Graph</span>
+      </div>
+      <div class="grid grid-cols-2 gap-2 text-xs">
+        <div class="text-on-surface-variant">Nodes (files)</div><div class="font-mono font-bold text-on-surface">${g.total_nodes}</div>
+        <div class="text-on-surface-variant">Edges (imports)</div><div class="font-mono font-bold text-on-surface">${g.total_edges}</div>
+        <div class="text-on-surface-variant">Circular deps</div><div class="font-mono font-bold ${g.cycles_detected > 0 ? 'text-error' : 'text-green-600'}">${g.cycles_detected}</div>
+        <div class="text-on-surface-variant">Isolated files</div><div class="font-mono font-bold text-on-surface">${g.isolated_files?.length || 0}</div>
+      </div>
+    </div>
+    <div class="p-4 rounded-xl bg-surface-container-low">
+      <div class="flex items-center gap-2 mb-3">
+        <span class="material-symbols-outlined text-tertiary" style="font-size:18px">star</span>
+        <span class="text-xs font-bold text-on-surface">Most Imported</span>
+      </div>
+      <ul class="space-y-1.5">
+        ${(g.most_imported || []).slice(0, 4).map(([name, count]) => `
+          <li class="flex items-center justify-between">
+            <span class="text-xs font-mono text-on-surface truncate max-w-[150px]">${name}</span>
+            <span class="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">${count} imports</span>
+          </li>`).join('')}
+      </ul>
+    </div>`;
+    }
+
+    // ── Heatmap Table ─────────────────────────
+    function renderHeatTable() {
+      const sorted = [...complexityData].sort((a, b) => b.complexity - a.complexity).slice(0, 8);
+      document.getElementById('heat-table').innerHTML = sorted.map(f => {
+        const g = gradeStyle(f.grade);
+        return `<tr class="hover:bg-surface-container-low transition-colors">
+      <td class="px-5 py-3 font-mono text-on-surface truncate max-w-[180px]">${f.path || f.file}</td>
+      <td class="px-5 py-3 font-bold text-on-surface">${f.complexity}</td>
+      <td class="px-5 py-3"><span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${g.bg} ${g.text}">${f.grade_label}</span></td>
+      <td class="px-5 py-3 text-right font-mono text-on-surface-variant">${fmtNum(f.lines)}</td>
+    </tr>`;
+      }).join('');
+    }
+
+    // ── Complexity Cards ──────────────────────
+    function renderComplexityCards() {
+      const sortKey = document.getElementById('sort-select')?.value || 'score';
+      const sorted = [...complexityData].sort((a, b) => (b[sortKey] || b.complexity) - (a[sortKey] || a.complexity));
+      const max_c = Math.max(...sorted.map(f => f.complexity), 10);
+
+      document.getElementById('complexity-cards').innerHTML = sorted.map(f => {
+        const g = gradeStyle(f.grade);
+        const pct = Math.min(100, Math.round(f.complexity / max_c * 100));
+        const gradeColor = { A: '#22c55e', B: '#22c55e', C: '#0969da', D: '#0969da', E: '#f97316', F: '#ba1a1a' };
+        const barColor = gradeColor[f.grade] || '#0969da';
+        const topFuncs = (f.top_functions || []).slice(0, 3);
+
+        return `
+    <div class="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/15 hover:border-outline-variant/35 transition-all cursor-pointer" onclick="selectFileByPath('${f.path || f.file}')">
+      <div class="flex items-start justify-between mb-3">
+        <div class="min-w-0">
+          <div class="text-xs font-mono font-semibold text-on-surface truncate">${f.path || f.file}</div>
+          <div class="text-[10px] text-on-surface-variant mt-0.5">${fmtNum(f.lines)} lines · ${f.functions || '?'} functions · <span class="font-mono">${f.lang}</span></div>
+        </div>
+        <div class="text-right ml-3 shrink-0">
+          <div class="text-xl font-black text-on-surface">${f.complexity}</div>
+          <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${g.bg} ${g.text}">${f.grade_label}</span>
+        </div>
+      </div>
+      <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden mb-2">
+        <div class="h-full rounded-full transition-all" style="width:${pct}%;background:${barColor}"></div>
+      </div>
+      ${topFuncs.length ? `
+      <div class="mt-2 space-y-1">
+        ${topFuncs.map(fn => `
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-mono text-on-surface-variant truncate">${fn.name}()</span>
+            <span class="text-[10px] font-bold ml-2 ${fn.complexity > 10 ? 'text-orange-600' : 'text-on-surface-variant'}">${fn.complexity}</span>
+          </div>`).join('')}
+      </div>` : ''}
+      ${f.maintainability_index ? `<div class="mt-2 text-[10px] text-on-surface-variant">Maintainability Index: <strong class="${f.maintainability_index < 20 ? 'text-error' : f.maintainability_index < 65 ? 'text-orange-600' : 'text-green-600'}">${f.maintainability_index}</strong>/100</div>` : ''}
+    </div>`;
+      }).join('');
+    }
+
+    // ── File Tree ─────────────────────────────
+    function renderFileTree(items, container = document.getElementById('file-tree'), depth = 0) {
+      container.innerHTML = depth === 0 ? '' : container.innerHTML;
+      for (const item of items) {
+        if (item.type === 'folder') {
+          const wrap = document.createElement('div');
+          const header = document.createElement('div');
+          header.className = 'file-row flex items-center gap-2 py-1.5 rounded-lg cursor-pointer text-on-surface select-none';
+          header.style.paddingLeft = (12 + depth * 10) + 'px';
+          const folderPath = item.path || ((depth > 0 ? container.dataset.path + '/' : '') + item.name);
+          const folderUid = btoa(unescape(encodeURIComponent(folderPath))).replace(/[^a-zA-Z0-9]/g, '_');
+          header.innerHTML = `
+        <span class="material-symbols-outlined fill text-secondary transition-transform" style="font-size:15px" id="fi-${folderUid}">${item.open !== false ? 'folder_open' : 'folder'}</span>
+        <span class="text-xs font-medium">${item.name}/</span>`;
+
+          const kids = document.createElement('div');
+          kids.style.display = item.open !== false ? 'block' : 'none';
+          kids.id = 'fc-' + folderUid;
+          kids.dataset.path = folderPath;
+
+          header.onclick = () => {
+            const open = kids.style.display !== 'none';
+            kids.style.display = open ? 'none' : 'block';
+            const ico = document.getElementById('fi-' + folderUid);
+            ico.textContent = open ? 'folder' : 'folder_open';
+            item.open = !open;
+          };
+
+          if (item.children?.length) renderFileTree(item.children, kids, depth + 1);
+          wrap.append(header, kids);
+          container.appendChild(wrap);
+        } else {
+          const div = document.createElement('div');
+          div.className = 'file-row flex items-center gap-2 py-1.5 rounded-lg cursor-pointer text-on-surface';
+          div.style.paddingLeft = (12 + depth * 10) + 'px';
+          div.setAttribute('data-path', item.path || item.name);
+          div.innerHTML = `
+        <span class="${langColor(item.lang)} material-symbols-outlined" style="font-size:14px">${langIcon(item.lang)}</span>
+        <span class="text-xs truncate">${item.name}</span>`;
+          div.onclick = () => selectFile(item, div);
+          container.appendChild(div);
+        }
+      }
+    }
+
+    function filterTree() {
+      const q = document.getElementById('file-search').value.toLowerCase();
+      document.querySelectorAll('[data-path]').forEach(el => {
+        const match = el.getAttribute('data-path').toLowerCase().includes(q);
+        el.style.display = match ? '' : 'none';
+      });
+    }
+
+    function toggleFolders() {
+      const allKids = document.querySelectorAll('[id^="fc-"]');
+      const anyOpen = [...allKids].some(el => el.style.display !== 'none');
+      allKids.forEach(el => el.style.display = anyOpen ? 'none' : 'block');
+    }
+
+    function selectFile(item, el) {
+      selectedFile = item;
+      document.querySelectorAll('[data-path]').forEach(e => e.classList.remove('selected'));
+      el.classList.add('selected');
+    }
+
+    function selectFileByPath(path) {
+      const el = document.querySelector(`[data-path="${path}"]`);
+      if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); el.click(); }
+    }
+
+    // ── D3 Dependency Graph ────────────────────
+    function renderGraph() {
+      const svg = d3.select('#graph-svg');
+      svg.selectAll('*').remove();
+      if (!graphData?.nodes?.length) {
+        svg.append('text').attr('x', '50%').attr('y', '50%').attr('text-anchor', 'middle').attr('fill', '#727785').attr('font-size', '13').text('No dependency data available');
+        return;
+      }
+
+      const area = document.getElementById('graph-area');
+      const W = area.clientWidth, H = area.clientHeight;
+      svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+      const nodes = graphData.nodes.map(d => ({ ...d }));
+      const links = graphData.links.map(d => ({ ...d }));
+
+      // Defs: arrowhead
+      svg.append('defs').append('marker')
+        .attr('id', 'arr').attr('viewBox', '0 -4 8 8').attr('refX', 16).attr('refY', 0)
+        .attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto')
+        .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', '#c2c6d6');
+
+      const g = svg.append('g');
+      svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', e => g.attr('transform', e.transform)));
+
+      const sim = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(100).strength(0.4))
+        .force('charge', d3.forceManyBody().strength(-280))
+        .force('center', d3.forceCenter(W / 2, H / 2))
+        .force('collision', d3.forceCollide(d => d.size + 8));
+
+      const link = g.append('g').selectAll('line')
+        .data(links).join('line').attr('class', 'link').attr('stroke-width', 1.5).attr('marker-end', 'url(#arr)');
+
+      const node = g.append('g').selectAll('g')
+        .data(nodes).join('g').attr('class', 'node')
+        .call(d3.drag()
+          .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
+          .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
+          .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+      node.append('circle')
+        .attr('r', d => d.size || 10)
+        .attr('fill', d => d.color + '25')
+        .attr('stroke', d => d.color)
+        .attr('stroke-width', d => d.is_hub ? 2.5 : 1.8)
+        .attr('stroke-dasharray', d => d.in_cycle ? '4,2' : 'none');
+
+      node.append('text').attr('y', d => (d.size || 10) + 12).attr('text-anchor', 'middle')
+        .attr('font-size', '9').text(d => d.id.length > 18 ? d.id.slice(0, 16) + '…' : d.id);
+
+      // Tooltip
+      const tip = document.getElementById('graph-tooltip');
+      node.on('mouseover', (e, d) => {
+        const gs = gradeStyle(d.complexity <= 10 ? 'B' : d.complexity <= 25 ? 'C' : d.complexity <= 50 ? 'E' : 'F');
+        tip.className = 'absolute bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-44';
+        tip.innerHTML = `
+      <div class="font-mono font-bold text-on-surface mb-2">${d.id}</div>
+      <div class="space-y-1 text-on-surface-variant">
+        <div>${fmtNum(d.lines)} lines · ${d.functions || '?'} functions</div>
+        <div>Complexity: <span class="${gs.text} font-bold">${d.complexity}</span></div>
+        <div>Imports: ${d.out_degree} · Imported by: ${d.in_degree}</div>
+        ${d.is_hub ? '<div class="text-orange-600 font-semibold">⚠ Hub file</div>' : ''}
+        ${d.in_cycle ? '<div class="text-red-600 font-semibold">⚠ Circular dep</div>' : ''}
+      </div>`;
+        tip.style.left = (e.layerX + 12) + 'px'; tip.style.top = (e.layerY - 10) + 'px';
+      }).on('mouseout', () => tip.className = 'hidden');
+
+      sim.on('tick', () => {
+        link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+          .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
+      });
+
+      document.getElementById('graph-subtitle').textContent =
+        `${graphData.nodes.length} nodes · ${graphData.links.length} edges · ${graphData.metrics?.cycles_detected || 0} circular deps`;
+    }
+
+    // ── Tabs ──────────────────────────────────
+    function switchTab(name, btn) {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.tab-content').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
+      btn.classList.add('active');
+      const el = document.getElementById('tab-' + name);
+      el.classList.add('active');
+      el.style.display = 'flex';
+      el.style.flex = '1';
+      el.style.overflow = name === 'graph' ? 'hidden' : 'auto';
+      if (name === 'graph') setTimeout(renderGraph, 80);
+    }
+
+    // ── Chat ──────────────────────────────────
+    function initChat() {
+      chatHistory = [];
+      addMsg('ai', `Hello! I've analyzed <code style="background:#d5e3fc;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px">${repoData.meta.full_name}</code>. Found ${repoData.stats?.total_files} files, ${fmtNum(repoData.stats?.total_lines)} lines of ${repoData.meta.language}. Ask me anything about the architecture or code!`);
+    }
+
+    function addMsg(role, html, isNew = false) {
+      const wrap = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = `flex flex-col gap-1 ${role === 'user' ? 'items-end ml-4' : 'mr-4'} ${isNew ? 'fade-in' : ''}`;
+      const bubble = document.createElement('div');
+      bubble.className = role === 'user' ? 'chat-user p-3 text-xs' : 'chat-ai p-3 text-xs';
+      bubble.innerHTML = html;
+      const ts = document.createElement('span');
+      ts.className = 'text-[9px] text-outline px-1';
+      ts.textContent = (role === 'ai' ? 'AI' : 'You') + ' · just now';
+      div.append(bubble, ts);
+      wrap.appendChild(div);
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function showTyping() {
+      const wrap = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.id = 'typing';
+      div.className = 'flex items-center gap-2 px-1 mr-4';
+      div.innerHTML = `<div class="flex gap-1"><div class="size-1.5 bg-tertiary rounded-full b1"></div><div class="size-1.5 bg-tertiary rounded-full b2"></div><div class="size-1.5 bg-tertiary rounded-full b3"></div></div><span class="text-[10px] font-medium text-tertiary italic">Analyzing code...</span>`;
+      wrap.append(div);
+      wrap.scrollTop = wrap.scrollHeight;
+    }
+
+    function hideTyping() { document.getElementById('typing')?.remove(); }
+
+    function onChatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
+    function sendQuick(t) { document.getElementById('chat-input').value = t; sendChat(); }
+
+    async function sendChat() {
+      const input = document.getElementById('chat-input');
+      const msg = input.value.trim();
+      if (!msg) return;
+      input.value = '';
+      addMsg('user', esc(msg), true);
+      showTyping();
+
+      try {
+        const resp = await fetch(`${API}/chat`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo_key: repoKey, message: msg, history: chatHistory.slice(-12) })
+        });
+        const data = await resp.json();
+        hideTyping();
+        if (!resp.ok) {
+          if (resp.status === 404) {
+            addMsg('ai', '<span class="text-error">Repository context is missing on backend (likely server restart). Please re-run Analyze from the home page.</span>', true);
+          } else {
+            addMsg('ai', `<span class="text-error">${data.error || 'Error'}</span>`, true);
+          }
+          return;
+        }
+        chatHistory.push({ role: 'user', content: msg }, { role: 'assistant', content: data.reply });
+        addMsg('ai', fmtReply(data.reply), true);
+      } catch (e) {
+        hideTyping();
+        addMsg('ai', '<span class="text-error">Cannot reach backend. Is python run.py running?</span>', true);
+      }
+    }
+
+    // ── Explain File ──────────────────────────
+    async function explainSelectedFile() {
+      if (!selectedFile) {
+        addMsg('ai', 'Select a file in the Explorer sidebar first, then click "Explain Selected File".', true);
+        return;
+      }
+      const fname = selectedFile.name || selectedFile.path;
+      addMsg('user', `Explain <code style="background:#d5e3fc;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:10px">${fname}</code>`, true);
+      showTyping();
+      try {
+        const resp = await fetch(`${API}/explain-file`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo_key: repoKey, filename: selectedFile.path || fname })
+        });
+        const data = await resp.json();
+        hideTyping();
+        if (!resp.ok) {
+          if (resp.status === 404) {
+            addMsg('ai', '<span class="text-error">Repository context is missing on backend (likely server restart). Please re-run Analyze from the home page.</span>', true);
+          } else {
+            addMsg('ai', `<span class="text-error">${data.error}</span>`, true);
+          }
+          return;
+        }
+        addMsg('ai', fmtReply(data.explanation), true);
+      } catch (e) {
+        hideTyping();
+        addMsg('ai', '<span class="text-error">Backend error.</span>', true);
+      }
+    }
+
+    // ── README ────────────────────────────────
+    async function triggerReadme() {
+      switchTab('readme', document.getElementById('readme-tab-btn'));
+      await generateReadme();
+    }
+
+    async function generateReadme() {
+      const btn = document.getElementById('readme-btn');
+      btn.disabled = true;
+      btn.innerHTML = `<span class="material-symbols-outlined spin" style="font-size:14px">cycle</span> Generating...`;
+
+      document.getElementById('readme-output').innerHTML =
+        `<div class="flex items-center gap-3 p-6 text-sm text-tertiary"><span class="material-symbols-outlined spin" style="font-size:20px">cycle</span>Claude is writing your README...</div>`;
+
+      try {
+        const resp = await fetch(`${API}/readme`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ repo_key: repoKey })
+        });
+        const data = await resp.json();
+        if (!resp.ok) {
+          document.getElementById('readme-output').innerHTML = `<p class="text-error p-4">${data.error}</p>`;
+        } else {
+          readmeRaw = data.readme;
+          document.getElementById('readme-output').innerHTML = renderMd(readmeRaw);
+        }
+      } catch (e) {
+        document.getElementById('readme-output').innerHTML = `<p class="text-error p-4">Backend error.</p>`;
+      }
+
+      btn.disabled = false;
+      btn.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span> Regenerate`;
+    }
+
+    function copyReadme() {
+      if (!readmeRaw) return;
+      navigator.clipboard.writeText(readmeRaw).then(() => {
+        const btn = document.querySelector('[onclick="copyReadme()"]');
+        const orig = btn.innerHTML;
+        btn.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:14px">check</span> Copied!`;
+        setTimeout(() => btn.innerHTML = orig, 2000);
+      });
+    }
+
+    // ── Helpers ───────────────────────────────
+    function fmtNum(n) {
+      if (!n) return '0';
+      return n > 999 ? (n / 1000).toFixed(1) + 'k' : String(n);
+    }
+
+    function esc(t) {
+      return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    function fmtReply(t) {
+      let safe = esc(t);
+      const blocks = [];
+      safe = safe.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        const html = `<pre style="background:#1a1d20;color:#e5e7eb;padding:0.7rem 1rem;border-radius:0.5rem;overflow-x:auto;margin:0.4rem 0;font-family:monospace;font-size:11px">${code.trim()}</pre>`;
+        blocks.push(html);
+        return `@@BLOCK_${blocks.length - 1}@@`;
+      });
+      safe = safe
+        .replace(/`([^`]+)`/g, '<code style="background:#d5e3fc;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:10px;color:#3a485b">$1</code>')
+        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+      return safe.replace(/@@BLOCK_(\d+)@@/g, (_, i) => blocks[Number(i)] || '');
+    }
+
+    function gradeStyle(grade) {
+      const map = {
+        A: { bg: 'bg-green-100', text: 'text-green-700' },
+        B: { bg: 'bg-green-100', text: 'text-green-700' },
+        C: { bg: 'bg-secondary-container', text: 'text-on-secondary-container' },
+        D: { bg: 'bg-orange-100', text: 'text-orange-700' },
+        E: { bg: 'bg-red-100', text: 'text-red-700' },
+        F: { bg: 'bg-error-container', text: 'text-on-error-container' },
+      };
+      return map[grade] || map['C'];
+    }
+
+    function langIcon(lang) {
+      const icons = {
+        python: 'code', javascript: 'code', typescript: 'code', java: 'coffee', go: 'code',
+        rust: 'code', ruby: 'code', php: 'code', swift: 'code', kotlin: 'code', csharp: 'code',
+        md: 'description', json: 'data_object', html: 'html', css: 'css'
+      };
+      return icons[lang] || 'insert_drive_file';
+    }
+    function langColor(lang) {
+      const colors = {
+        python: 'text-blue-600', javascript: 'text-yellow-500', typescript: 'text-blue-500',
+        java: 'text-orange-600', go: 'text-cyan-500', rust: 'text-orange-700', ruby: 'text-red-500',
+        php: 'text-purple-500', md: 'text-on-surface-variant', json: 'text-on-surface-variant'
+      };
+      return colors[lang] || 'text-on-surface-variant';
+    }
+
+    function renderMd(md) {
+      let h = esc(md);
+      h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, code) => `<pre><code>${code.trimEnd()}</code></pre>`);
+      h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+      h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>');
+      h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
+      h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+      h = h.replace(/^---$/gm, '<hr>');
+      h = h.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+      h = h.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
+      h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
+      h = h.replace(/\n\n(?!<)/g, '</p><p>');
+      h = `<p>${h}</p>`;
+      ['h1', 'h2', 'h3', 'pre', 'ul', 'hr', 'blockquote'].forEach(tag => {
+        h = h.replace(new RegExp(`<p>(<${tag}>)`, 'g'), '$1');
+        h = h.replace(new RegExp(`(</${tag}>)<\/p>`, 'g'), '$1');
+      });
+      return h;
+    }
+  </script>
+</body>
+
+</html>

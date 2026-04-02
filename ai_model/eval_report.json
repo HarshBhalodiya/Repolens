@@ -1,0 +1,359 @@
+{
+  "avg_bleu": 72.6548,
+  "avg_keyword_match": 71.384,
+  "avg_length_ratio": 0.8363327429310087,
+  "grade": "A",
+  "num_examples": 50,
+  "results": [
+    {
+      "question": "Explain README.md in psf/requests",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain HISTORY.md in psf/requests",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does .npmignore do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain CHANGELOG.rst in tartley/colorama",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does CHANGELOG.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does .gitignore do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain Readme.md in expressjs/express",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does CONTRIBUTING.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "List files in expressjs/express",
+      "bleu": 24.4,
+      "keyword_match": 25.0,
+      "predicted_words": 9,
+      "reference_words": 23
+    },
+    {
+      "question": "List files in tiangolo/fastapi",
+      "bleu": 33.51,
+      "keyword_match": 33.3,
+      "predicted_words": 11,
+      "reference_words": 23
+    },
+    {
+      "question": "What does .pre-commit-config.yaml do?",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain the architecture of tartley/colorama",
+      "bleu": 32.08,
+      "keyword_match": 33.3,
+      "predicted_words": 15,
+      "reference_words": 27
+    },
+    {
+      "question": "Explain CITATION.cff in tiangolo/fastapi",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain AUTHORS.rst in psf/requests",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does the encode/httpx repository do?",
+      "bleu": 12.66,
+      "keyword_match": 5.3,
+      "predicted_words": 13,
+      "reference_words": 26
+    },
+    {
+      "question": "Explain pyproject.toml in tartley/colorama",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain requirements.txt in kennethreitz/records",
+      "bleu": 41.74,
+      "keyword_match": 46.7,
+      "predicted_words": 11,
+      "reference_words": 25
+    },
+    {
+      "question": "How do I generate a README for a repository?",
+      "bleu": 0.0,
+      "keyword_match": 5.6,
+      "predicted_words": 13,
+      "reference_words": 51
+    },
+    {
+      "question": "What does .eslintignore do?",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does CONTRIBUTORS.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does __init__.py do in Python?",
+      "bleu": 0.0,
+      "keyword_match": 10.0,
+      "predicted_words": 13,
+      "reference_words": 53
+    },
+    {
+      "question": "What does clean.ps1 do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What tech stack does axios/axios use?",
+      "bleu": 23.11,
+      "keyword_match": 18.2,
+      "predicted_words": 15,
+      "reference_words": 19
+    },
+    {
+      "question": "What does README.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does .gitignore do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain uv.lock in pallets/flask",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does LICENSE do?",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does a dependency graph show?",
+      "bleu": 0.0,
+      "keyword_match": 0.0,
+      "predicted_words": 13,
+      "reference_words": 44
+    },
+    {
+      "question": "Explain GOVERNANCE.md in lodash/lodash",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What is the difference between authentication and authorizat...",
+      "bleu": 0.0,
+      "keyword_match": 3.1,
+      "predicted_words": 13,
+      "reference_words": 54
+    },
+    {
+      "question": "What does MIGRATION_GUIDE.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain the architecture of axios/axios",
+      "bleu": 15.23,
+      "keyword_match": 9.1,
+      "predicted_words": 13,
+      "reference_words": 29
+    },
+    {
+      "question": "What does .editorconfig do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does CHANGELOG.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain History.md in expressjs/express",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does .gitignore do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain the architecture of tiangolo/fastapi",
+      "bleu": 15.45,
+      "keyword_match": 12.0,
+      "predicted_words": 13,
+      "reference_words": 33
+    },
+    {
+      "question": "What does ENTERPRISE.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain .coveragerc in psf/requests",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain .python-version in tiangolo/fastapi",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain LICENSE in tiangolo/fastapi",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Generate a README for pallets/flask. Language: Python. Descr...",
+      "bleu": 1.59,
+      "keyword_match": 2.7,
+      "predicted_words": 13,
+      "reference_words": 131
+    },
+    {
+      "question": "What does ECOSYSTEM.md do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does .gitignore do?",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain .gitignore in tartley/colorama",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain .editorconfig in pallets/flask",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain pyproject.toml in encode/httpx",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "Explain records.py in kennethreitz/records",
+      "bleu": 17.32,
+      "keyword_match": 15.4,
+      "predicted_words": 13,
+      "reference_words": 19
+    },
+    {
+      "question": "Explain LICENSE in lodash/lodash",
+      "bleu": 100.0,
+      "keyword_match": 100.0,
+      "predicted_words": 13,
+      "reference_words": 13
+    },
+    {
+      "question": "What does .python-version do?",
+      "bleu": 87.71,
+      "keyword_match": 83.3,
+      "predicted_words": 13,
+      "reference_words": 13
+    }
+  ]
+}
