@@ -3,22 +3,26 @@ run.py — Start the Flask development server
 Usage: python run.py
 """
 import sys
-import os
+from pathlib import Path
 
-# Add backend/ to path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "backend"))
-os.chdir(os.path.join(os.path.dirname(__file__), "backend"))
+# Resolve project root using pathlib (no os.chdir!)
+PROJECT_ROOT = Path(__file__).resolve().parent
+BACKEND_DIR = PROJECT_ROOT / "backend"
+
+# Add backend/ to the Python path so "from app import app" works
+sys.path.insert(0, str(BACKEND_DIR))
 
 from app import app
 
 if __name__ == "__main__":
+    import os
     port = int(os.getenv("PORT", 5000))
     print(f"""
 ╔════════════════════════════════════════════╗
-║   AI GitHub Repo Analyzer — Backend        ║
+║   RepoLens — AI GitHub Repo Analyzer       ║
 ╠════════════════════════════════════════════╣
 ║   http://localhost:{port}                  ║
-║   Open frontend/index.html in browser      ║
+║   Open in your browser to start            ║
 ╚════════════════════════════════════════════╝
     """)
     app.run(debug=True, port=port, host="0.0.0.0")

@@ -1,39 +1,43 @@
-ai_model/my_repo_model/
-chroma_db/
-ai_model/data/
-__pycache__/
+# ── Environment & Secrets ──────────────────────────────
 .env
-# Auto-generated entries
-# Dependencies
+.env.local
+.env.production
+.env.*.local
+
+# ── Python ─────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.so
+*.egg-info/
+dist/
+build/
+*.egg
+
+# ── AI Model Artifacts ─────────────────────────────────
+ai_model/my_repo_model/
+ai_model/data/
+
+# ── Vector Store ───────────────────────────────────────
+chroma_db/
+
+# ── Node / JS ──────────────────────────────────────────
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Build outputs
-dist/
-build/
-*.log
-
-# Environment files
-.env
-.env.*
-
-# IDE files
+# ── IDE ────────────────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
 
-# OS files
+# ── OS ─────────────────────────────────────────────────
 .DS_Store
 Thumbs.db
 
-# Temporary files
+# ── Logs & Temp ────────────────────────────────────────
+*.log
 *.tmp
 *.temp
 .cache/
-
-# Sensitive files (auto-detected)
-.env
-

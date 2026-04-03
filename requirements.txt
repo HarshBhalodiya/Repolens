@@ -1,28 +1,26 @@
-# AI GitHub Repo Analyzer - Dependencies
+# RepoLens — Dependencies
 # Install: pip install -r requirements.txt
 
 # ── Web Framework ──────────────────────────────────────
-flask==3.0.3
-flask-cors==4.0.1
-python-dotenv==1.0.1
-gunicorn==22.0.0          # production server
+flask>=3.0
+flask-cors>=4.0
+python-dotenv>=1.0
 
 # ── GitHub API ─────────────────────────────────────────
-requests==2.32.3
+requests>=2.31
 
 # ── Code Analysis ──────────────────────────────────────
-radon==6.0.1              # cyclomatic complexity (Python files)
+radon>=6.0              # cyclomatic complexity (Python files)
 
 # ── AI / LLM ───────────────────────────────────────────
-anthropic==0.29.0         # Claude API
+anthropic>=0.29         # Claude API (fallback)
 
 # ── Embeddings & Vector Store ──────────────────────────
-sentence-transformers==3.0.1   # local embeddings (no API key needed)
-chromadb==0.5.5                # vector store for RAG
-torch==2.3.1                   # required by sentence-transformers
+sentence-transformers>=3.0    # local embeddings (no API key needed)
+chromadb>=0.5                 # vector store for RAG
 
 # ── Graph Analysis ─────────────────────────────────────
-networkx==3.3             # dependency graph metrics
+networkx>=3.0           # dependency graph metrics
 
 # ── Utilities ──────────────────────────────────────────
-numpy==1.26.4
+numpy>=1.24
