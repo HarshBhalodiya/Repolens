@@ -145,17 +145,26 @@ function renderHistory() {
 function fillExample(url) { document.getElementById('repo-url').value = url; }
 
 // ═══════════════════════════════════════════════════════
-// MULTI-STEP LOADING SCREEN
+// ANALYZE LOADING MODAL (overlay + light card + SSE progress)
 // ═══════════════════════════════════════════════════════
+function repoDisplayNameFromUrl(url) {
+  try {
+    const u = new URL(url);
+    const segs = u.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+    if (segs.length >= 2) return `${segs[0]}/${segs[1]}`;
+    if (segs.length === 1) return segs[0];
+  } catch (_) {}
+  return 'Repository';
+}
+
 function showLoadingScreen() {
   const screen = document.getElementById('loading-screen');
-  screen.classList.remove('hidden');
-  // Reset all steps
-  document.querySelectorAll('.loading-step').forEach(s => {
-    s.classList.remove('active', 'done');
-  });
+  const url = currentRepoUrl || document.getElementById('repo-url').value.trim();
+  document.getElementById('loading-repo-title').textContent = repoDisplayNameFromUrl(url);
+  document.getElementById('loading-status').textContent = 'Preparing analysis…';
   document.getElementById('loading-bar').style.width = '0%';
-  document.getElementById('loading-pct').textContent = '0%';
+  document.getElementById('loading-pct').textContent = '0 %';
+  screen.classList.remove('hidden');
 }
 
 function hideLoadingScreen() {
@@ -163,33 +172,10 @@ function hideLoadingScreen() {
 }
 
 function updateLoadingStep(pct, stepLabel) {
-  document.getElementById('loading-bar').style.width = pct + '%';
-  document.getElementById('loading-pct').textContent = pct + '%';
-
-  const stepMap = {
-    'Fetching': 'fetch', 'Parsing': 'parse', 'Building dependency': 'graph',
-    'Calculating': 'complexity', 'Loading embedding': 'embed',
-    'Storing': 'store', 'Analysis complete': 'done', 'Loaded from cache': 'done',
-    'Checking cache': 'fetch',
-  };
-
-  // Find matching step
-  let activeKey = null;
-  for (const [key, val] of Object.entries(stepMap)) {
-    if (stepLabel.includes(key)) { activeKey = val; break; }
-  }
-
-  const steps = document.querySelectorAll('.loading-step');
-  const stepOrder = ['fetch', 'parse', 'graph', 'complexity', 'embed', 'store', 'done'];
-  const activeIdx = activeKey ? stepOrder.indexOf(activeKey) : -1;
-
-  steps.forEach(s => {
-    const sKey = s.getAttribute('data-step');
-    const sIdx = stepOrder.indexOf(sKey);
-    s.classList.remove('active', 'done');
-    if (sIdx < activeIdx) s.classList.add('done');
-    else if (sIdx === activeIdx) s.classList.add('active');
-  });
+  const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
+  document.getElementById('loading-bar').style.width = clamped + '%';
+  document.getElementById('loading-pct').textContent = `${Math.round(clamped)} %`;
+  if (stepLabel) document.getElementById('loading-status').textContent = stepLabel;
 }
 
 // ═══════════════════════════════════════════════════════

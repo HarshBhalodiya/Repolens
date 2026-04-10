@@ -29,28 +29,16 @@
 <!-- Toast Container -->
 <div id="toast-container" class="fixed top-5 right-5 z-[999] space-y-2"></div>
 
-<!-- ═══════════ LOADING SCREEN ═══════════ -->
-<div id="loading-screen" class="loading-screen hidden">
-  <div class="flex items-center gap-3 mb-6">
-    <div class="w-10 h-10 ai-gradient rounded-xl flex items-center justify-center">
-      <span class="material-symbols-outlined fill text-white" style="font-size:22px">terminal</span>
+<!-- ═══════════ ANALYZE LOADING MODAL ═══════════ -->
+<div id="loading-screen" class="loading-overlay hidden" aria-busy="true" aria-live="polite">
+  <div class="loading-modal" role="dialog" aria-labelledby="loading-repo-title">
+    <h2 id="loading-repo-title" class="loading-modal-title">username/repository</h2>
+    <div class="loading-modal-spinner" aria-hidden="true"></div>
+    <p id="loading-status" class="loading-modal-status">Fetching repository structure…</p>
+    <div class="loading-modal-track">
+      <div id="loading-bar" class="loading-modal-bar" style="width:0%"></div>
     </div>
-    <span class="text-xl font-bold">RepoLens</span>
-  </div>
-  <div class="space-y-2" id="loading-steps">
-    <div class="loading-step" data-step="fetch"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">cloud_download</span></span>Fetching repository structure</div>
-    <div class="loading-step" data-step="parse"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">code</span></span>Parsing import declarations</div>
-    <div class="loading-step" data-step="graph"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">hub</span></span>Building dependency graph</div>
-    <div class="loading-step" data-step="complexity"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">analytics</span></span>Calculating cyclomatic complexity</div>
-    <div class="loading-step" data-step="embed"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">neurology</span></span>Building AI embeddings</div>
-    <div class="loading-step" data-step="store"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">database</span></span>Storing in vector database</div>
-    <div class="loading-step" data-step="done"><span class="step-icon"><span class="material-symbols-outlined fill" style="font-size:16px">check_circle</span></span>Analysis complete!</div>
-  </div>
-  <div class="mt-6 w-64">
-    <div class="w-full h-1 bg-surface-highest rounded-full overflow-hidden">
-      <div id="loading-bar" class="h-full ai-gradient rounded-full transition-all duration-500" style="width:0%"></div>
-    </div>
-    <p id="loading-pct" class="text-xs text-text-muted text-center mt-2 font-mono">0%</p>
+    <p id="loading-pct" class="loading-modal-pct">0 %</p>
   </div>
 </div>
 
