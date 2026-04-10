@@ -3,100 +3,145 @@
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <meta name="description" content="RepoLens — AI-powered GitHub repository analyzer with dependency graphs, complexity analysis, and RAG chat."/>
+  <meta name="description" content="RepoLens — AI-powered GitHub repository analyzer with dependency graphs, complexity analysis, code smell detection, and RAG chat."/>
   <title>RepoLens — AI GitHub Repo Analyzer</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet"/>
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
-  <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css"/>
-  <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css" disabled/>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <link rel="stylesheet" href="styles.css"/>
   <script>
-    tailwind.config={theme:{extend:{colors:{"primary":"#0051ae","primary-container":"#0969da","on-primary":"#ffffff","secondary":"#515f74","secondary-container":"#d5e3fc","on-secondary-container":"#57657a","tertiary":"#691dda","on-tertiary":"#ffffff","surface":"#f7f9fb","surface-container":"#eceef0","surface-container-high":"#e6e8ea","surface-container-highest":"#e0e3e5","surface-container-low":"#f2f4f6","surface-container-lowest":"#ffffff","on-surface":"#191c1e","on-surface-variant":"#424753","outline":"#727785","outline-variant":"#c2c6d6","secondary-fixed":"#d5e3fc","on-secondary-fixed-variant":"#3a485b","primary-fixed":"#d8e2ff","error":"#ba1a1a","error-container":"#ffdad6","on-error-container":"#93000a"},fontFamily:{sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},borderRadius:{DEFAULT:"0.375rem",lg:"0.625rem",xl:"0.875rem"}}}}
+    tailwind.config={theme:{extend:{colors:{
+      "base":"#0D1117","surface":"#161B22","surface-high":"#1C2129",
+      "surface-higher":"#21262D","surface-highest":"#2D333B",
+      "primary":"#6E40C9","primary-light":"#8B5CF6","primary-dim":"rgba(110,64,201,0.15)",
+      "success":"#3FB950","info":"#58A6FF","warning":"#F0883E","danger":"#F85149",
+      "text-primary":"#E6EDF3","text-secondary":"#8B949E","text-muted":"#6E7681",
+      "border":"rgba(110,118,129,0.25)","border-strong":"rgba(110,118,129,0.45)"
+    },fontFamily:{sans:["Inter","sans-serif"],mono:["JetBrains Mono","monospace"]},
+    borderRadius:{DEFAULT:"0.5rem",lg:"0.75rem",xl:"1rem"}}}}
   </script>
 </head>
-<body class="bg-surface font-sans text-on-surface min-h-screen">
+<body class="bg-base font-sans text-text-primary min-h-screen">
 
 <!-- Toast Container -->
 <div id="toast-container" class="fixed top-5 right-5 z-[999] space-y-2"></div>
 
+<!-- ═══════════ LOADING SCREEN ═══════════ -->
+<div id="loading-screen" class="loading-screen hidden">
+  <div class="flex items-center gap-3 mb-6">
+    <div class="w-10 h-10 ai-gradient rounded-xl flex items-center justify-center">
+      <span class="material-symbols-outlined fill text-white" style="font-size:22px">terminal</span>
+    </div>
+    <span class="text-xl font-bold">RepoLens</span>
+  </div>
+  <div class="space-y-2" id="loading-steps">
+    <div class="loading-step" data-step="fetch"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">cloud_download</span></span>Fetching repository structure</div>
+    <div class="loading-step" data-step="parse"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">code</span></span>Parsing import declarations</div>
+    <div class="loading-step" data-step="graph"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">hub</span></span>Building dependency graph</div>
+    <div class="loading-step" data-step="complexity"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">analytics</span></span>Calculating cyclomatic complexity</div>
+    <div class="loading-step" data-step="embed"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">neurology</span></span>Building AI embeddings</div>
+    <div class="loading-step" data-step="store"><span class="step-icon"><span class="material-symbols-outlined" style="font-size:16px">database</span></span>Storing in vector database</div>
+    <div class="loading-step" data-step="done"><span class="step-icon"><span class="material-symbols-outlined fill" style="font-size:16px">check_circle</span></span>Analysis complete!</div>
+  </div>
+  <div class="mt-6 w-64">
+    <div class="w-full h-1 bg-surface-highest rounded-full overflow-hidden">
+      <div id="loading-bar" class="h-full ai-gradient rounded-full transition-all duration-500" style="width:0%"></div>
+    </div>
+    <p id="loading-pct" class="text-xs text-text-muted text-center mt-2 font-mono">0%</p>
+  </div>
+</div>
+
 <!-- ═══════════ VIEW: LANDING ═══════════ -->
 <div id="view-landing">
-  <header class="flex items-center justify-between px-10 py-3.5 bg-surface border-b border-outline-variant/15 sticky top-0 z-50">
+  <header class="flex items-center justify-between px-8 py-3 glass border-b border-border sticky top-0 z-50">
     <div class="flex items-center gap-3">
-      <div class="size-7 text-primary"><svg fill="none" viewBox="0 0 48 48"><path d="M39.5563 34.1455V13.8546C39.5563 15.708 36.8773 17.3437 32.7927 18.3189C30.2914 18.916 27.263 19.2655 24 19.2655C20.737 19.2655 17.7086 18.916 15.2073 18.3189C11.1227 17.3437 8.44365 15.708 8.44365 13.8546V34.1455C8.44365 35.9988 11.1227 37.6346 15.2073 38.6098C17.7086 39.2069 20.737 39.5564 24 39.5564C27.1288 39.5564 30.2914 39.2069 32.7927 38.6098C36.8773 37.6346 39.5563 35.9988 39.5563 34.1455Z" fill="currentColor"/></svg></div>
+      <div class="w-8 h-8 ai-gradient rounded-lg flex items-center justify-center">
+        <span class="material-symbols-outlined fill text-white" style="font-size:18px">terminal</span>
+      </div>
       <span class="text-lg font-bold tracking-tight">RepoLens</span>
     </div>
-    <nav class="flex items-center gap-5">
-      <button onclick="showView('health')" class="text-sm font-medium text-on-surface-variant hover:text-primary transition-colors flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:16px">monitor_heart</span>Health</button>
-      <button id="dark-toggle" onclick="toggleDark()" class="size-9 flex items-center justify-center rounded-lg hover:bg-surface-container transition-colors"><span class="material-symbols-outlined" style="font-size:20px">dark_mode</span></button>
+    <nav class="flex items-center gap-4">
+      <button onclick="showView('health')" class="text-sm font-medium text-text-secondary hover:text-primary-light transition-colors flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:16px">monitor_heart</span>Health</button>
+      <a href="https://github.com/HarshBhalodiya/Repolens" target="_blank" class="text-sm font-medium text-text-secondary hover:text-primary-light transition-colors flex items-center gap-1"><span class="material-symbols-outlined" style="font-size:16px">code</span>GitHub</a>
     </nav>
   </header>
 
   <main>
-    <section class="w-full flex flex-col items-center text-center px-6 pt-20 pb-16">
-      <h1 class="fade-up text-on-surface font-black leading-tight mb-6 max-w-4xl" style="font-size:clamp(2.8rem,7vw,4.5rem);letter-spacing:-0.035em">AI GitHub Repo Analyzer</h1>
-      <p class="fade-up text-on-surface-variant text-xl leading-relaxed max-w-2xl mb-14">Paste any GitHub URL. Get a visual dependency graph, cyclomatic complexity scores, and an AI chat that <em>actually understands</em> your code.</p>
+    <!-- Hero Section with D3 Background -->
+    <section class="relative w-full flex flex-col items-center text-center px-6 pt-24 pb-20 overflow-hidden">
+      <canvas id="hero-canvas"></canvas>
+      <div class="relative z-10 max-w-4xl">
+        <div class="trust-badge mb-8 mx-auto fade-up" style="animation-delay:0.1s">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z" fill="#8B5CF6"/></svg>
+          Powered by Claude AI · RAG via ChromaDB
+        </div>
+        <h1 class="fade-up font-black leading-none mb-6" style="font-size:clamp(2.8rem,7vw,4.5rem);letter-spacing:-0.04em;animation-delay:0.2s">
+          <span class="ai-gradient-text">AI GitHub</span> Repo<br/>Analyzer
+        </h1>
+        <p class="fade-up text-text-secondary text-lg leading-relaxed max-w-2xl mx-auto mb-12" style="animation-delay:0.3s">
+          Paste any GitHub URL. Get a visual dependency graph, cyclomatic complexity scores, code smell detection, and an AI chat that <em class="text-primary-light">actually understands</em> your code.
+        </p>
 
-      <div id="input-card" class="w-full max-w-2xl bg-surface-container-lowest p-2.5 rounded-xl border border-outline-variant/20 shadow-2xl mb-6">
-        <div class="flex flex-col sm:flex-row gap-2">
-          <div id="input-wrapper" class="flex-1 flex items-center bg-surface-container-low rounded-lg px-4 border border-transparent focus-within:border-primary/40 transition-all">
-            <span class="material-symbols-outlined text-outline mr-3" style="font-size:20px">link</span>
-            <input id="repo-url" type="text" placeholder="https://github.com/username/repository" class="w-full py-4 bg-transparent border-none text-on-surface placeholder:text-outline font-medium text-sm" onkeydown="if(event.key==='Enter') startAnalysis()"/>
+        <!-- URL Input -->
+        <div id="input-card" class="fade-up w-full max-w-2xl mx-auto p-2 rounded-xl border border-border bg-surface shadow-2xl mb-6 glow-pulse" style="animation-delay:0.4s">
+          <div class="flex flex-col sm:flex-row gap-2">
+            <div id="input-wrapper" class="flex-1 flex items-center bg-surface-high rounded-lg px-4 border border-transparent focus-within:border-primary/40 transition-all">
+              <span class="material-symbols-outlined text-text-muted mr-3" style="font-size:20px">link</span>
+              <input id="repo-url" type="text" value="" placeholder="https://github.com/username/repository" class="w-full py-3.5 bg-transparent border-none text-text-primary placeholder:text-text-muted font-medium text-sm font-mono" onkeydown="if(event.key==='Enter') startAnalysis()"/>
+            </div>
+            <button id="analyze-btn" onclick="startAnalysis()" class="ai-gradient text-white px-8 py-3.5 rounded-lg font-bold text-sm hover:opacity-90 transition-all flex items-center justify-center gap-2 shrink-0 min-w-[140px]">
+              <span class="material-symbols-outlined" style="font-size:18px">analytics</span>
+              <span id="btn-text">Analyze</span>
+            </button>
           </div>
-          <button id="analyze-btn" onclick="startAnalysis()" class="ai-gradient text-on-primary px-8 py-4 rounded-lg font-bold text-base hover:opacity-90 transition-opacity flex items-center justify-center gap-2 shrink-0 min-w-[140px]">
-            <span class="material-symbols-outlined" style="font-size:20px">analytics</span>
-            <span id="btn-text">Analyze</span>
-          </button>
         </div>
-      </div>
 
-      <!-- SSE Progress -->
-      <div id="progress-wrap" class="hidden w-full max-w-2xl mb-4">
-        <div class="flex justify-between mb-2">
-          <span class="text-sm font-medium text-primary flex items-center gap-2"><span class="material-symbols-outlined spin" style="font-size:16px">cycle</span><span id="progress-step">Starting…</span></span>
-          <span id="progress-pct" class="text-sm font-bold text-on-surface">0%</span>
+        <!-- Example Repos -->
+        <div class="flex flex-wrap justify-center gap-2 mt-3 fade-up" style="animation-delay:0.5s">
+          <span class="text-xs text-text-muted self-center mr-1">Try:</span>
+          <button onclick="fillExample('https://github.com/psf/requests')" class="text-xs px-3 py-1.5 bg-surface border border-border rounded-full text-text-secondary hover:border-primary/40 font-mono transition-all">psf/requests</button>
+          <button onclick="fillExample('https://github.com/expressjs/express')" class="text-xs px-3 py-1.5 bg-surface border border-border rounded-full text-text-secondary hover:border-primary/40 font-mono transition-all">expressjs/express</button>
+          <button onclick="fillExample('https://github.com/pallets/flask')" class="text-xs px-3 py-1.5 bg-surface border border-border rounded-full text-text-secondary hover:border-primary/40 font-mono transition-all">pallets/flask</button>
         </div>
-        <div class="w-full h-1.5 bg-surface-container-high rounded-full overflow-hidden"><div id="progress-bar" class="h-full ai-gradient rounded-full transition-all duration-500" style="width:0%"></div></div>
-        <p id="progress-sub" class="text-xs text-on-surface-variant font-mono uppercase tracking-wider mt-2 text-center"></p>
-      </div>
 
-      <!-- Example repos -->
-      <div class="flex flex-wrap justify-center gap-2 mt-2">
-        <span class="text-xs text-outline self-center mr-1">Try:</span>
-        <button onclick="fillExample('https://github.com/psf/requests')" class="text-xs px-3 py-1.5 bg-surface-container rounded-full text-on-surface-variant hover:bg-surface-container-high font-mono transition-colors">psf/requests</button>
-        <button onclick="fillExample('https://github.com/expressjs/express')" class="text-xs px-3 py-1.5 bg-surface-container rounded-full text-on-surface-variant hover:bg-surface-container-high font-mono transition-colors">expressjs/express</button>
-        <button onclick="fillExample('https://github.com/pallets/flask')" class="text-xs px-3 py-1.5 bg-surface-container rounded-full text-on-surface-variant hover:bg-surface-container-high font-mono transition-colors">pallets/flask</button>
-      </div>
-
-      <!-- Repo History -->
-      <div id="history-section" class="hidden w-full max-w-2xl mt-8">
-        <h3 class="text-sm font-bold text-on-surface mb-3 text-left">Recent Repositories</h3>
-        <div id="history-list" class="space-y-2"></div>
+        <!-- Repo History -->
+        <div id="history-section" class="hidden w-full max-w-2xl mx-auto mt-8">
+          <h3 class="text-sm font-bold text-text-primary mb-3 text-left">Recent Repositories</h3>
+          <div id="history-list" class="space-y-2"></div>
+        </div>
       </div>
     </section>
 
-    <!-- Features -->
-    <section class="w-full bg-surface-container-low py-20 px-6">
+    <!-- Feature Preview Cards -->
+    <section class="w-full py-20 px-6" style="background:linear-gradient(180deg,var(--base),var(--surface))">
       <div class="max-w-5xl mx-auto">
-        <div class="text-center mb-14"><h2 class="text-on-surface text-3xl font-black mb-3" style="letter-spacing:-0.02em">Powerful Analysis Features</h2><div class="h-1 w-16 ai-gradient mx-auto rounded-full"></div></div>
-        <div class="grid grid-cols-1 sm:grid-cols-3 gap-5">
-          <div class="p-7 rounded-xl bg-surface-container-lowest border border-outline-variant/10 hover:border-primary/30 hover:shadow-lg transition-all group">
-            <div class="size-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-5"><span class="material-symbols-outlined" style="font-size:22px">hub</span></div>
-            <h3 class="font-bold text-on-surface mb-2 text-base">Visual Dependency Graph</h3>
-            <p class="text-sm text-on-surface-variant leading-relaxed">D3.js force-directed graph. Nodes = files, edges = imports. Drag, zoom, and explore your architecture.</p>
+        <div class="text-center mb-14">
+          <h2 class="text-3xl font-black mb-3" style="letter-spacing:-0.025em">Powerful Analysis Features</h2>
+          <div class="h-1 w-16 ai-gradient mx-auto rounded-full"></div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 feature-grid">
+          <div class="feature-card">
+            <div class="icon-wrap bg-info/10 text-info"><span class="material-symbols-outlined" style="font-size:22px">hub</span></div>
+            <h3 class="font-bold text-text-primary mb-2 text-sm">Dependency Graph</h3>
+            <p class="text-xs text-text-secondary leading-relaxed">Interactive D3 force-directed graph. Color-coded by file type, sized by complexity.</p>
           </div>
-          <div class="p-7 rounded-xl bg-surface-container-lowest border border-outline-variant/10 hover:border-primary/30 hover:shadow-lg transition-all group">
-            <div class="size-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-5"><span class="material-symbols-outlined" style="font-size:22px">analytics</span></div>
-            <h3 class="font-bold text-on-surface mb-2 text-base">Complexity Analysis</h3>
-            <p class="text-sm text-on-surface-variant leading-relaxed">Radon-powered cyclomatic complexity for Python. Custom parser for JS/TS. Per-file scores with A–F grades.</p>
+          <div class="feature-card">
+            <div class="icon-wrap bg-warning/10 text-warning"><span class="material-symbols-outlined" style="font-size:22px">analytics</span></div>
+            <h3 class="font-bold text-text-primary mb-2 text-sm">Complexity Analysis</h3>
+            <p class="text-xs text-text-secondary leading-relaxed">Radon-powered cyclomatic complexity with horizontal bar charts and heatmap overlays.</p>
           </div>
-          <div class="p-7 rounded-xl bg-surface-container-lowest border border-outline-variant/10 hover:border-primary/30 hover:shadow-lg transition-all group">
-            <div class="size-11 rounded-lg bg-primary/10 flex items-center justify-center text-primary mb-5"><span class="material-symbols-outlined fill" style="font-size:22px">smart_toy</span></div>
-            <h3 class="font-bold text-on-surface mb-2 text-base">Chat with Repo (RAG)</h3>
-            <p class="text-sm text-on-surface-variant leading-relaxed">Code chunked, embedded, and stored in ChromaDB. AI retrieves the most relevant chunks per question.</p>
+          <div class="feature-card">
+            <div class="icon-wrap bg-danger/10 text-danger"><span class="material-symbols-outlined" style="font-size:22px">bug_report</span></div>
+            <h3 class="font-bold text-text-primary mb-2 text-sm">Code Smell Detection</h3>
+            <p class="text-xs text-text-secondary leading-relaxed">Detects long functions, high complexity, circular deps, and unused imports.</p>
+          </div>
+          <div class="feature-card">
+            <div class="icon-wrap bg-primary/10 text-primary-light"><span class="material-symbols-outlined fill" style="font-size:22px">smart_toy</span></div>
+            <h3 class="font-bold text-text-primary mb-2 text-sm">AI Chat (RAG)</h3>
+            <p class="text-xs text-text-secondary leading-relaxed">Streaming responses, syntax highlighting, and source citations per answer.</p>
           </div>
         </div>
       </div>
@@ -106,112 +151,149 @@
 
 <!-- ═══════════ VIEW: DASHBOARD ═══════════ -->
 <div id="view-dashboard" class="hidden h-screen w-screen overflow-hidden flex-col">
-  <!-- Header -->
-  <header class="flex items-center justify-between px-5 py-2.5 bg-surface border-b border-surface-container-high z-10 shrink-0">
-    <div class="flex items-center gap-5">
-      <a onclick="showView('landing');return false" href="#" class="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-        <div class="size-8 ai-gradient rounded-lg flex items-center justify-center text-white"><span class="material-symbols-outlined fill" style="font-size:18px">terminal</span></div>
+  <!-- Dashboard Header -->
+  <header class="flex items-center justify-between px-4 py-2 bg-surface border-b border-border z-10 shrink-0">
+    <div class="flex items-center gap-4">
+      <a onclick="showView('landing');return false" href="#" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <div class="w-7 h-7 ai-gradient rounded-lg flex items-center justify-center text-white"><span class="material-symbols-outlined fill" style="font-size:16px">terminal</span></div>
         <span class="text-sm font-bold tracking-tight">RepoLens</span>
       </a>
-      <div class="h-5 w-px bg-surface-container-highest"></div>
-      <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-low rounded-lg">
-        <span class="material-symbols-outlined fill text-primary" style="font-size:14px">account_tree</span>
-        <span id="header-repo" class="text-xs font-medium text-on-surface-variant font-mono">loading…</span>
+      <div class="h-4 w-px bg-surface-highest"></div>
+      <div class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-high rounded-lg border border-border">
+        <span class="material-symbols-outlined fill text-primary-light" style="font-size:13px">account_tree</span>
+        <span id="header-repo" class="text-xs font-medium text-text-secondary font-mono">loading…</span>
       </div>
       <div class="hidden sm:flex items-center gap-2">
-        <span id="pill-files" class="px-2 py-0.5 bg-surface-container rounded-full text-[10px] font-mono text-on-surface-variant">? files</span>
-        <span id="pill-lines" class="px-2 py-0.5 bg-surface-container rounded-full text-[10px] font-mono text-on-surface-variant">? lines</span>
-        <span id="pill-lang" class="px-2 py-0.5 bg-secondary-container rounded-full text-[10px] font-bold text-on-secondary-fixed-variant">?</span>
+        <span id="pill-files" class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? files</span>
+        <span id="pill-lines" class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? lines</span>
+        <span id="pill-lang" class="px-2 py-0.5 bg-primary-dim rounded-full text-[10px] font-bold text-primary-light">?</span>
       </div>
     </div>
-    <div class="flex items-center gap-3">
-      <div class="flex items-center bg-surface-container-highest rounded-lg px-3 py-1.5 w-48">
-        <span class="material-symbols-outlined text-on-surface-variant mr-2" style="font-size:15px">search</span>
-        <input id="file-search" type="text" placeholder="Filter files…" oninput="filterTree()" class="bg-transparent border-none text-xs w-full p-0 placeholder:text-outline"/>
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-surface-highest rounded-lg px-3 py-1.5 w-44">
+        <span class="material-symbols-outlined text-text-muted mr-2" style="font-size:14px">search</span>
+        <input id="file-search" type="text" placeholder="Filter files…" oninput="filterTree()" class="bg-transparent border-none text-xs w-full p-0 placeholder:text-text-muted text-text-primary"/>
       </div>
-      <button onclick="showView('landing')" class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high text-xs font-medium transition-colors"><span class="material-symbols-outlined" style="font-size:15px">add</span>New Repo</button>
-      <button onclick="toggleDark()" class="size-8 flex items-center justify-center rounded-lg hover:bg-surface-container transition-colors"><span class="material-symbols-outlined" style="font-size:18px">dark_mode</span></button>
+      <button id="force-reanalyze-btn" onclick="forceReanalyze()" title="Force re-analyze (clear cache)" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-warning hover:border-warning/30 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
+      </button>
+      <button onclick="showView('landing')" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-text-primary text-xs font-medium transition-all">
+        <span class="material-symbols-outlined" style="font-size:14px">add</span>New
+      </button>
     </div>
   </header>
 
-  <div class="flex flex-1 overflow-hidden">
-    <!-- Sidebar -->
-    <aside class="w-64 bg-surface-container-low flex flex-col border-r border-transparent shrink-0">
-      <div class="px-4 py-3 flex items-center justify-between border-b border-outline-variant/10">
-        <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Explorer</span>
-        <button onclick="toggleFolders()" class="text-primary text-[10px] font-semibold hover:underline">Toggle All</button>
-      </div>
-      <nav id="file-tree" class="flex-1 overflow-y-auto px-2 py-1.5 scroll space-y-px"></nav>
-      <div class="p-3 border-t border-outline-variant/10 space-y-2">
-        <button onclick="explainSelectedFile()" class="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-secondary-container text-on-secondary-fixed-variant rounded-lg text-xs font-bold hover:opacity-90 transition-all"><span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span>Explain Selected File</button>
-        <button onclick="triggerReadme()" class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest text-on-surface-variant rounded-lg text-xs font-semibold hover:bg-surface-container-high transition-all"><span class="material-symbols-outlined" style="font-size:14px">description</span>Generate README</button>
+  <div class="flex flex-1 overflow-hidden relative">
+    <!-- Sidebar Toggle (visible when collapsed) -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()" class="sidebar-toggle hidden" title="Toggle sidebar">
+      <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+    </button>
+
+    <!-- Left Sidebar: File Explorer + AI Chat -->
+    <aside id="sidebar" class="sidebar" style="width:280px">
+      <!-- File Explorer -->
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="px-3 py-2.5 flex items-center justify-between border-b border-border">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-text-muted" style="font-size:14px">folder_open</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Explorer</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="toggleFolders()" class="text-primary-light text-[10px] font-semibold hover:underline">Toggle</button>
+            <button onclick="toggleSidebar()" class="text-text-muted hover:text-text-primary ml-1" title="Collapse sidebar">
+              <span class="material-symbols-outlined" style="font-size:14px">chevron_left</span>
+            </button>
+          </div>
+        </div>
+        <nav id="file-tree" class="flex-1 overflow-y-auto px-2 py-1 scroll space-y-px"></nav>
+        <div class="p-2.5 border-t border-border space-y-1.5">
+          <button onclick="explainSelectedFile()" class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-primary-dim text-primary-light rounded-lg text-xs font-bold hover:bg-primary/20 transition-all">
+            <span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Explain File
+          </button>
+          <button onclick="triggerReadme()" class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-surface-higher text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all">
+            <span class="material-symbols-outlined" style="font-size:13px">description</span>README
+          </button>
+        </div>
       </div>
     </aside>
 
-    <!-- Main Content (full width — no sidebar) -->
-    <main class="flex-1 bg-surface-container-lowest flex flex-col overflow-hidden">
-      <div class="flex border-b border-surface-container px-5 shrink-0">
-        <button class="tab-btn active px-5 py-3.5 text-xs font-bold" onclick="switchTab('summary',this)"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">dashboard</span>Summary</button>
-        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface" onclick="switchTab('graph',this)"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">hub</span>Graph</button>
-        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface" onclick="switchTab('complexity',this)"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">analytics</span>Complexity</button>
-        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface" id="chat-tab-btn" onclick="switchTab('chat',this)"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">forum</span>Chat</button>
-        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface" id="readme-tab-btn" onclick="switchTab('readme',this)"><span class="material-symbols-outlined" style="font-size:14px;vertical-align:middle;margin-right:4px">description</span>README</button>
+    <!-- Main Content -->
+    <main class="flex-1 bg-base flex flex-col overflow-hidden">
+      <!-- Tab Bar -->
+      <div class="flex border-b border-border px-4 shrink-0 bg-surface">
+        <button class="tab-btn active px-4 py-3 text-xs font-bold" onclick="switchTab('summary',this)"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px">dashboard</span>Summary</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('graph',this)"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px">hub</span>Graph</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('complexity',this)"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px">analytics</span>Complexity</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="chat-tab-btn" onclick="switchTab('chat',this)"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px">forum</span>Chat</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="timeline-tab-btn" onclick="switchTab('timeline',this)"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px">timeline</span>Timeline</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="smells-tab-btn" onclick="switchTab('smells',this)"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px">bug_report</span>Smells</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="readme-tab-btn" onclick="switchTab('readme',this)"><span class="material-symbols-outlined" style="font-size:13px;vertical-align:middle;margin-right:4px">description</span>README</button>
       </div>
 
       <!-- TAB: Summary -->
-      <div id="tab-summary" class="tab-content active overflow-y-auto p-7 scroll"><div class="w-full space-y-8">
-        <div><h1 id="sum-name" class="text-2xl font-bold tracking-tight text-on-surface mb-1.5">Loading…</h1><p id="sum-desc" class="text-on-surface-variant text-sm leading-relaxed"></p><div class="flex flex-wrap gap-2 mt-3" id="sum-topics"></div></div>
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <div class="p-4 rounded-xl bg-surface-container-low"><div class="text-2xl font-black text-on-surface mb-0.5" id="s-files">–</div><div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Files Analyzed</div></div>
-          <div class="p-4 rounded-xl bg-surface-container-low"><div class="text-2xl font-black text-on-surface mb-0.5" id="s-lines">–</div><div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Total Lines</div></div>
-          <div class="p-4 rounded-xl bg-surface-container-low"><div class="text-2xl font-black text-on-surface mb-0.5" id="s-funcs">–</div><div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Functions</div></div>
-          <div class="p-4 rounded-xl bg-surface-container-low"><div class="text-2xl font-black text-primary mb-0.5" id="s-cmplx">–</div><div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Avg Complexity</div></div>
+      <div id="tab-summary" class="tab-content active overflow-y-auto p-6 scroll"><div class="w-full space-y-6">
+        <div><h1 id="sum-name" class="text-2xl font-bold tracking-tight mb-1.5">Loading…</h1><p id="sum-desc" class="text-text-secondary text-sm leading-relaxed"></p><div class="flex flex-wrap gap-2 mt-3" id="sum-topics"></div></div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 stats-grid">
+          <div class="p-4 rounded-xl bg-surface border border-border"><div class="text-2xl font-black mb-0.5" id="s-files">–</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Files Analyzed</div></div>
+          <div class="p-4 rounded-xl bg-surface border border-border"><div class="text-2xl font-black mb-0.5" id="s-lines">–</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Total Lines</div></div>
+          <div class="p-4 rounded-xl bg-surface border border-border"><div class="text-2xl font-black mb-0.5" id="s-funcs">–</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Functions</div></div>
+          <div class="p-4 rounded-xl bg-surface border border-border"><div class="text-2xl font-black text-primary-light mb-0.5" id="s-cmplx">–</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Avg Complexity</div></div>
         </div>
-        <div id="graph-insights" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-        <div><h3 class="text-sm font-bold text-on-surface mb-4">Complexity Heatmap</h3><div class="overflow-hidden rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm"><table class="w-full text-left"><thead class="bg-surface-container-low"><tr class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold"><th class="px-5 py-3">File</th><th class="px-5 py-3">Score</th><th class="px-5 py-3">Grade</th><th class="px-5 py-3 text-right">Lines</th></tr></thead><tbody id="heat-table" class="divide-y divide-surface-container text-xs"></tbody></table></div></div>
+        <div id="graph-insights" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+        <!-- Smell summary card -->
+        <div id="smell-summary-card" class="hidden"></div>
+        <div><h3 class="text-sm font-bold mb-4">Complexity Heatmap</h3><div class="overflow-hidden rounded-xl bg-surface border border-border"><table class="w-full text-left"><thead class="bg-surface-high"><tr class="text-[10px] uppercase tracking-wider text-text-secondary font-bold"><th class="px-4 py-2.5">File</th><th class="px-4 py-2.5">Score</th><th class="px-4 py-2.5">Grade</th><th class="px-4 py-2.5 text-right">Lines</th></tr></thead><tbody id="heat-table" class="divide-y divide-border text-xs"></tbody></table></div></div>
       </div></div>
 
       <!-- TAB: Graph -->
       <div id="tab-graph" class="tab-content">
-        <div class="flex items-center justify-between px-6 py-3.5 border-b border-surface-container shrink-0">
-          <div><h3 class="text-sm font-bold text-on-surface">Import Dependency Graph</h3><p class="text-xs text-on-surface-variant mt-0.5" id="graph-subtitle">Drag to rearrange · Scroll to zoom</p></div>
-          <div class="flex items-center gap-5 text-xs text-on-surface-variant">
-            <div class="flex items-center gap-1.5"><div class="size-3 rounded-full bg-blue-500 opacity-80"></div>Low</div>
-            <div class="flex items-center gap-1.5"><div class="size-3 rounded-full bg-yellow-400"></div>Med</div>
-            <div class="flex items-center gap-1.5"><div class="size-3 rounded-full bg-orange-500"></div>High</div>
-            <div class="flex items-center gap-1.5"><div class="size-3 rounded-full bg-red-500"></div>Crit</div>
-            <button onclick="renderGraph()" class="ml-2 px-3 py-1 bg-surface-container rounded-lg hover:bg-surface-container-high text-[12px] font-semibold">↺ Reset</button>
+        <div class="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+          <div><h3 class="text-sm font-bold">Import Dependency Graph</h3><p class="text-xs text-text-secondary mt-0.5" id="graph-subtitle">Drag to rearrange · Scroll to zoom</p></div>
+          <div class="flex items-center gap-3 text-xs text-text-secondary">
+            <!-- File type legend -->
+            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full" style="background:#58A6FF"></div>.py</div>
+            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full" style="background:#F0883E"></div>.js</div>
+            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full" style="background:#3FB950"></div>.ts</div>
+            <div class="flex items-center gap-1.5"><div class="w-3 h-3 rounded-full" style="background:#F85149"></div>.html</div>
+            <div class="h-3 w-px bg-surface-highest"></div>
+            <!-- Cluster toggle -->
+            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" id="cluster-toggle" onchange="renderGraph()" class="w-3 h-3 rounded accent-primary"/>
+              <span class="text-[11px]">Cluster by folder</span>
+            </label>
+            <button onclick="renderGraph()" class="px-2.5 py-1 bg-surface-higher border border-border rounded-lg hover:border-primary/30 text-[11px] font-semibold transition-all">↺ Reset</button>
           </div>
         </div>
-        <div class="flex-1 relative overflow-hidden bg-surface-container-low" id="graph-area"><svg id="graph-svg" class="w-full h-full"></svg><div id="graph-tooltip" class="hidden absolute bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-44 max-w-56"></div></div>
+        <div class="flex-1 relative overflow-hidden bg-base" id="graph-area"><svg id="graph-svg" class="w-full h-full"></svg><div id="graph-tooltip" class="hidden absolute bg-surface border border-border rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-48 max-w-64"></div></div>
       </div>
 
       <!-- TAB: Complexity -->
-      <div id="tab-complexity" class="tab-content overflow-y-auto p-7 scroll"><div class="w-full">
-        <div class="flex items-center justify-between mb-6"><h3 class="text-sm font-bold text-on-surface">Code Quality Analysis</h3>
-          <select id="sort-select" onchange="renderComplexityCards()" class="text-xs bg-surface-container border-none rounded-lg px-2 py-1 cursor-pointer"><option value="score">Complexity</option><option value="lines">Lines</option><option value="functions">Functions</option></select>
+      <div id="tab-complexity" class="tab-content overflow-y-auto p-6 scroll"><div class="w-full">
+        <!-- Most Complex File Callout -->
+        <div id="most-complex-callout" class="most-complex-callout mb-6 hidden"></div>
+        <div class="flex items-center justify-between mb-5"><h3 class="text-sm font-bold">Code Quality Analysis</h3>
+          <select id="sort-select" onchange="renderComplexityCards()" class="text-xs bg-surface-higher border border-border rounded-lg px-2 py-1 cursor-pointer text-text-secondary"><option value="score">Complexity</option><option value="lines">Lines</option><option value="functions">Functions</option></select>
         </div>
-        <div id="complexity-cards" class="space-y-3"></div>
+        <div id="complexity-cards" class="space-y-2.5"></div>
       </div></div>
 
       <!-- TAB: Chat (Code Viewer + AI Chat split) -->
       <div id="tab-chat" class="tab-content overflow-hidden">
         <div class="flex flex-1 overflow-hidden h-full">
-
           <!-- Left: Code Viewer -->
-          <div class="flex-1 flex flex-col border-r border-surface-container min-w-0">
-            <div class="flex items-center justify-between px-5 py-2.5 border-b border-surface-container shrink-0 bg-surface-container-low">
+          <div class="flex-1 flex flex-col border-r border-border min-w-0">
+            <div class="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-surface">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary" style="font-size:16px">code</span>
-                <span id="viewer-filename" class="text-xs font-mono font-bold text-on-surface truncate">Select a file from the explorer</span>
+                <span class="material-symbols-outlined text-primary-light" style="font-size:15px">code</span>
+                <span id="viewer-filename" class="text-xs font-mono font-bold truncate">Select a file from the explorer</span>
               </div>
-              <div id="viewer-stats" class="text-[10px] text-on-surface-variant shrink-0"></div>
+              <div id="viewer-stats" class="text-[10px] text-text-muted shrink-0"></div>
             </div>
             <div id="viewer-content" class="flex-1 overflow-auto p-0 scroll">
-              <div class="flex flex-col items-center justify-center h-full text-on-surface-variant text-sm gap-3">
-                <span class="material-symbols-outlined" style="font-size:40px;opacity:.4">code</span>
+              <div class="flex flex-col items-center justify-center h-full text-text-secondary text-sm gap-3">
+                <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">code</span>
                 <p>Click a file in the Explorer to view its code</p>
-                <p class="text-[10px] text-outline">The AI chat can reference the selected file</p>
+                <p class="text-[10px] text-text-muted">The AI chat can reference the selected file</p>
               </div>
             </div>
           </div>
@@ -220,46 +302,79 @@
           <div id="chat-resize-handle" class="chat-resize-handle" title="Drag to resize"></div>
 
           <!-- Right: Chat Panel -->
-          <div id="chat-panel" class="flex flex-col shrink-0 bg-surface-container-low" style="width:384px;min-width:280px;max-width:700px">
-            <div class="px-4 py-2.5 border-b border-surface-container bg-surface-container-lowest flex items-center justify-between shrink-0">
+          <div id="chat-panel" class="flex flex-col shrink-0 bg-surface" style="width:384px;min-width:280px;max-width:700px">
+            <div class="px-3 py-2 border-b border-border flex items-center justify-between shrink-0">
               <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined fill text-tertiary" style="font-size:16px">auto_awesome</span>
+                <span class="material-symbols-outlined fill text-primary-light" style="font-size:15px">auto_awesome</span>
                 <span class="text-xs font-bold">AI Chat</span>
               </div>
               <div class="flex items-center gap-1.5">
-                <div id="engine-dot" class="size-1.5 rounded-full bg-green-500 pulse-dot"></div>
-                <span id="engine-label" class="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">Online</span>
+                <div id="engine-dot" class="w-1.5 h-1.5 rounded-full bg-success pulse-dot"></div>
+                <span id="engine-label" class="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Online</span>
               </div>
             </div>
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-3.5 space-y-3.5 scroll"></div>
-            <div class="p-3 bg-surface-container-lowest border-t border-surface-container shrink-0">
-              <div class="flex flex-wrap gap-1.5 mb-2.5">
-                <button onclick="sendQuick('What does this repo do?')" class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high">What does it do?</button>
-                <button onclick="sendQuick('Which file handles authentication?')" class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high">Auth logic?</button>
-                <button onclick="sendQuick('What are the main entry points?')" class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high">Entry points?</button>
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-3 scroll"></div>
+            <div class="p-3 border-t border-border shrink-0">
+              <div id="starter-questions" class="flex flex-wrap gap-1.5 mb-2.5">
+                <button onclick="sendQuick('What does this repo do?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">What does it do?</button>
+                <button onclick="sendQuick('Which file is most complex?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Most complex?</button>
+                <button onclick="sendQuick('What are the main entry points?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Entry points?</button>
+                <button onclick="sendQuick('Are there any code smells?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Code smells?</button>
               </div>
               <div class="relative flex items-end gap-2">
-                <div class="flex-1 bg-surface-container rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-primary/20 transition-all border border-transparent focus-within:border-primary/30">
-                  <textarea id="chat-input" rows="1" placeholder="Ask about this repo…" class="w-full bg-transparent border-none text-xs p-3 resize-none max-h-28" onkeydown="onChatKey(event)"></textarea>
+                <div class="flex-1 bg-surface-high rounded-xl overflow-hidden border border-border focus-within:border-primary/40 transition-all">
+                  <textarea id="chat-input" rows="1" placeholder="Ask about this repo…" class="w-full bg-transparent border-none text-xs p-3 resize-none max-h-28 text-text-primary placeholder:text-text-muted" onkeydown="onChatKey(event)"></textarea>
                 </div>
-                <button onclick="sendChat()" class="size-10 flex items-center justify-center rounded-xl ai-gradient text-white shadow-lg hover:shadow-primary/30 shrink-0"><span class="material-symbols-outlined" style="font-size:18px">send</span></button>
+                <button onclick="sendChat()" class="w-9 h-9 flex items-center justify-center rounded-xl ai-gradient text-white shadow-lg hover:shadow-primary/30 shrink-0"><span class="material-symbols-outlined" style="font-size:16px">send</span></button>
               </div>
-              <p class="text-[9px] text-center text-outline mt-2">Powered by Ollama / Claude · RAG via ChromaDB</p>
+              <p class="text-[9px] text-center text-text-muted mt-2">Powered by Ollama / Claude · RAG via ChromaDB</p>
             </div>
           </div>
-
         </div>
       </div>
 
-      <!-- TAB: README -->
-      <div id="tab-readme" class="tab-content overflow-y-auto p-7 scroll"><div class="w-full">
-        <div class="flex items-center justify-between mb-5"><h3 class="text-sm font-bold text-on-surface">Auto-Generated README</h3>
-          <div class="flex gap-2">
-            <button onclick="generateReadme()" id="readme-btn" class="flex items-center gap-1.5 px-3.5 py-2 ai-gradient text-on-primary rounded-lg text-xs font-bold hover:opacity-90"><span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span>Generate with AI</button>
-            <button onclick="copyReadme()" class="flex items-center gap-1.5 px-3 py-2 bg-surface-container text-on-surface-variant rounded-lg text-xs font-semibold hover:bg-surface-container-high"><span class="material-symbols-outlined" style="font-size:14px">content_copy</span>Copy</button>
+      <!-- TAB: Timeline -->
+      <div id="tab-timeline" class="tab-content overflow-y-auto p-6 scroll"><div class="w-full">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-sm font-bold">Git Timeline</h3>
+          <button onclick="sendQuick('What changed in the last 30 days?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-dim text-primary-light rounded-lg text-[11px] font-semibold hover:bg-primary/20 transition-all">
+            <span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Ask AI
+          </button>
+        </div>
+        <div id="timeline-content" class="space-y-6">
+          <div class="text-center py-12 text-text-secondary">
+            <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">timeline</span>
+            <p class="mt-3 text-sm">Loading timeline data…</p>
           </div>
         </div>
-        <div id="readme-output" class="readme bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/15 min-h-64"><div class="flex flex-col items-center justify-center h-40 gap-3 text-center"><span class="material-symbols-outlined text-outline-variant" style="font-size:40px">description</span><p class="text-sm text-on-surface-variant">Click "Generate with AI" to create a README</p></div></div>
+      </div></div>
+
+      <!-- TAB: Smells -->
+      <div id="tab-smells" class="tab-content overflow-y-auto p-6 scroll"><div class="w-full">
+        <div class="flex items-center justify-between mb-5">
+          <h3 class="text-sm font-bold">Code Smells</h3>
+          <div class="flex items-center gap-3">
+            <span id="smell-critical-count" class="text-xs font-bold text-danger">0 critical</span>
+            <span id="smell-warning-count" class="text-xs font-bold text-warning">0 warnings</span>
+          </div>
+        </div>
+        <div id="smells-list" class="space-y-2">
+          <div class="text-center py-12 text-text-secondary">
+            <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">bug_report</span>
+            <p class="mt-3 text-sm">Loading code smell analysis…</p>
+          </div>
+        </div>
+      </div></div>
+
+      <!-- TAB: README -->
+      <div id="tab-readme" class="tab-content overflow-y-auto p-6 scroll"><div class="w-full">
+        <div class="flex items-center justify-between mb-5"><h3 class="text-sm font-bold">Auto-Generated README</h3>
+          <div class="flex gap-2">
+            <button onclick="generateReadme()" id="readme-btn" class="flex items-center gap-1.5 px-3.5 py-2 ai-gradient text-white rounded-lg text-xs font-bold hover:opacity-90"><span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Generate with AI</button>
+            <button onclick="copyReadme()" class="flex items-center gap-1.5 px-3 py-2 bg-surface-higher border border-border text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all"><span class="material-symbols-outlined" style="font-size:13px">content_copy</span>Copy</button>
+          </div>
+        </div>
+        <div id="readme-output" class="readme bg-surface rounded-xl p-6 border border-border min-h-64"><div class="flex flex-col items-center justify-center h-40 gap-3 text-center"><span class="material-symbols-outlined text-text-muted" style="font-size:40px;opacity:.3">description</span><p class="text-sm text-text-secondary">Click "Generate with AI" to create a README</p></div></div>
       </div></div>
     </main>
   </div>
@@ -267,20 +382,22 @@
 
 <!-- ═══════════ VIEW: HEALTH ═══════════ -->
 <div id="view-health" class="hidden">
-  <header class="flex items-center justify-between px-10 py-3.5 bg-surface border-b border-outline-variant/15 sticky top-0 z-50">
+  <header class="flex items-center justify-between px-8 py-3 glass border-b border-border sticky top-0 z-50">
     <div class="flex items-center gap-3 cursor-pointer" onclick="showView('landing')">
-      <div class="size-7 text-primary"><svg fill="none" viewBox="0 0 48 48"><path d="M39.5563 34.1455V13.8546C39.5563 15.708 36.8773 17.3437 32.7927 18.3189C30.2914 18.916 27.263 19.2655 24 19.2655C20.737 19.2655 17.7086 18.916 15.2073 18.3189C11.1227 17.3437 8.44365 15.708 8.44365 13.8546V34.1455C8.44365 35.9988 11.1227 37.6346 15.2073 38.6098C17.7086 39.2069 20.737 39.5564 24 39.5564C27.1288 39.5564 30.2914 39.2069 32.7927 38.6098C36.8773 37.6346 39.5563 35.9988 39.5563 34.1455Z" fill="currentColor"/></svg></div>
+      <div class="w-8 h-8 ai-gradient rounded-lg flex items-center justify-center">
+        <span class="material-symbols-outlined fill text-white" style="font-size:18px">terminal</span>
+      </div>
       <span class="text-lg font-bold tracking-tight">RepoLens</span>
     </div>
-    <button onclick="showView('landing')" class="text-sm font-medium text-on-surface-variant hover:text-primary">← Back</button>
+    <button onclick="showView('landing')" class="text-sm font-medium text-text-secondary hover:text-primary-light transition-colors">← Back</button>
   </header>
   <div class="max-w-2xl mx-auto py-16 px-6">
-    <h1 class="text-3xl font-black text-on-surface mb-2">System Health</h1>
-    <p class="text-on-surface-variant mb-8">Verify that all services and API keys are properly configured.</p>
+    <h1 class="text-3xl font-black mb-2">System Health</h1>
+    <p class="text-text-secondary mb-8">Verify that all services and API keys are properly configured.</p>
     <div id="health-cards" class="space-y-4">
-      <div class="p-6 rounded-xl bg-surface-container-lowest border border-outline-variant/20 text-center text-on-surface-variant"><span class="material-symbols-outlined spin" style="font-size:24px">cycle</span><p class="mt-2 text-sm">Checking services…</p></div>
+      <div class="p-6 rounded-xl bg-surface border border-border text-center text-text-secondary"><span class="material-symbols-outlined spin" style="font-size:24px">cycle</span><p class="mt-2 text-sm">Checking services…</p></div>
     </div>
-    <button onclick="runHealthCheck()" class="mt-6 px-5 py-2.5 ai-gradient text-on-primary rounded-lg font-bold text-sm hover:opacity-90">Re-check All</button>
+    <button onclick="runHealthCheck()" class="mt-6 px-5 py-2.5 ai-gradient text-white rounded-lg font-bold text-sm hover:opacity-90">Re-check All</button>
   </div>
 </div>
 

@@ -1,6 +1,13 @@
 """
-RepoLens — Flask Backend (MVP)
+RepoLens — Flask Backend (v2)
 Run: python run.py
+
+New in v2:
+  - SQLite cache layer (repo+SHA keyed)
+  - Code smell detection endpoint
+  - Git timeline endpoint
+  - SSE streaming chat
+  - Cache invalidation endpoint
 """
 
 from flask import Flask, request, jsonify, send_from_directory, Response
@@ -25,7 +32,14 @@ from embeddings import build_embeddings, search_chunks
 from chat_engine import (
     chat_with_repo, explain_file_content, generate_readme,
     active_engine, check_ollama_health, check_claude_health,
+    stream_chat_with_repo,
 )
+from cache import (
+    get_latest_commit_sha, get_cached_repo, save_repo_cache,
+    invalidate_repo_cache, cache_stats,
+)
+from smells import detect_all_smells
+from timeline import build_timeline
 
 # ─────────────────────────────────────────
 # App setup
@@ -126,11 +140,40 @@ def analyze():
     data = request.json
     repo_url = data.get("repo_url", "").strip()
     analysis_id = data.get("analysis_id", "")
+    force = data.get("force", False)  # Force re-analysis (skip cache)
 
     if not repo_url or "github.com" not in repo_url:
         return jsonify({"error": "Invalid GitHub URL"}), 400
 
     try:
+        # ── Cache check ──────────────────────────────────
+        if not force:
+            _send_progress(analysis_id, "Checking cache…", 3, "CACHE")
+            commit_sha = get_latest_commit_sha(repo_url)
+            if commit_sha:
+                cached = get_cached_repo(repo_url, commit_sha)
+                if cached:
+                    print(f"[analyze] Cache hit for {repo_url} @ {commit_sha[:8]}")
+                    _send_progress(analysis_id, "Loaded from cache!", 100, "CACHED")
+
+                    # Restore to in-memory store
+                    repo_key = cached.get("repo_key", "")
+                    if repo_key:
+                        repo_store[repo_key] = cached.get("store_data", {})
+                        _save_repo_store()
+
+                    return jsonify({
+                        "repo_key": cached.get("repo_key", ""),
+                        "meta": cached.get("meta", {}),
+                        "file_tree": cached.get("file_tree", []),
+                        "complexity": cached.get("complexity", []),
+                        "graph": cached.get("graph", {}),
+                        "stats": cached.get("stats", {}),
+                        "cached": True,
+                    })
+        else:
+            commit_sha = get_latest_commit_sha(repo_url)
+
         # 1. Fetch repo files from GitHub API
         _send_progress(analysis_id, "Fetching repository structure…", 8, "GITHUB API")
         print(f"[analyze] Fetching: {repo_url}")
@@ -176,7 +219,28 @@ def analyze():
             sum(f["complexity"] for f in analyzed_files) / max(len(analyzed_files), 1), 1
         )
 
+        stats = {
+            "total_files": len(repo_data["files"]),
+            "total_lines": sum(f.get("lines", 0) for f in repo_data["files"]),
+            "total_functions": sum(f.get("functions", 0) for f in repo_data["files"]),
+            "avg_complexity": avg_complexity,
+        }
+
         _save_repo_store()
+
+        # ── Save to cache ────────────────────────────────
+        if commit_sha:
+            save_repo_cache(repo_url, commit_sha, {
+                "repo_key": repo_key,
+                "meta": repo_data["meta"],
+                "file_tree": repo_data["file_tree"],
+                "complexity": complexity,
+                "graph": graph,
+                "stats": stats,
+                "store_data": repo_store[repo_key],
+            })
+            print(f"[analyze] Cached result for {repo_url} @ {commit_sha[:8]}")
+
         _send_progress(analysis_id, "Analysis complete!", 100, "DONE")
 
         return jsonify({
@@ -185,12 +249,7 @@ def analyze():
             "file_tree": repo_data["file_tree"],
             "complexity": complexity,
             "graph": graph,
-            "stats": {
-                "total_files": len(repo_data["files"]),
-                "total_lines": sum(f.get("lines", 0) for f in repo_data["files"]),
-                "total_functions": sum(f.get("functions", 0) for f in repo_data["files"]),
-                "avg_complexity": avg_complexity,
-            }
+            "stats": stats,
         })
 
     except Exception as e:
@@ -260,7 +319,7 @@ def get_file_content():
 
 
 # ─────────────────────────────────────────
-# POST /api/chat
+# POST /api/chat  (standard, non-streaming)
 # ─────────────────────────────────────────
 @app.route("/api/chat", methods=["POST"])
 def chat():
@@ -285,10 +344,78 @@ def chat():
             context_chunks=context_chunks,
             complexity=repo["complexity"],
         )
-        return jsonify({"reply": reply})
+        # Return sources used for the "Sources" panel
+        sources = [
+            {
+                "file": c.get("file_name", c.get("file", "")),
+                "path": c.get("file", ""),
+                "relevance": c.get("relevance_score", 0),
+                "preview": c.get("text", "")[:150],
+            }
+            for c in context_chunks[:5]
+        ]
+        return jsonify({"reply": reply, "sources": sources})
     except Exception as e:
         print(f"[chat] Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────
+# POST /api/chat/stream  (SSE streaming chat)
+# ─────────────────────────────────────────
+@app.route("/api/chat/stream", methods=["POST"])
+def chat_stream():
+    """Stream chat responses via Server-Sent Events."""
+    data = request.json
+    repo_key = data.get("repo_key", "")
+    message = data.get("message", "").strip()
+    history = data.get("history", [])
+
+    if not message:
+        return jsonify({"error": "Empty message"}), 400
+
+    repo = repo_store.get(repo_key)
+    if not repo:
+        return jsonify({"error": "Repo not found. Run /api/analyze first."}), 404
+
+    context_chunks = search_chunks(repo["collection_id"], message, n_results=5)
+    sources = [
+        {
+            "file": c.get("file_name", c.get("file", "")),
+            "path": c.get("file", ""),
+            "relevance": c.get("relevance_score", 0),
+            "preview": c.get("text", "")[:150],
+        }
+        for c in context_chunks[:5]
+    ]
+
+    def generate():
+        try:
+            # Send sources first
+            yield f"event: sources\ndata: {json.dumps(sources)}\n\n"
+
+            # Stream chat response
+            for token in stream_chat_with_repo(
+                message=message,
+                history=history,
+                repo_meta=repo["meta"],
+                context_chunks=context_chunks,
+                complexity=repo["complexity"],
+            ):
+                yield f"data: {json.dumps({'token': token})}\n\n"
+
+            yield "event: done\ndata: {}\n\n"
+        except Exception as e:
+            yield f"event: error\ndata: {json.dumps({'error': str(e)})}\n\n"
+
+    return Response(
+        generate(),
+        mimetype="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ─────────────────────────────────────────
@@ -338,6 +465,74 @@ def get_readme():
 
 
 # ─────────────────────────────────────────
+# GET /api/smells?repo=owner/name
+# ─────────────────────────────────────────
+@app.route("/api/smells", methods=["GET"])
+def get_smells():
+    """Detect and return code smells for a repository."""
+    repo_key = request.args.get("repo", "")
+    data = repo_store.get(repo_key)
+    if not data:
+        return jsonify({"error": "Repo not found. Run /api/analyze first."}), 404
+
+    try:
+        smells = detect_all_smells(
+            files=data.get("files", []),
+            complexity_data=data.get("complexity", []),
+            graph_data=data.get("graph", {}),
+            deps=data.get("deps", []),
+        )
+        return jsonify({
+            "smells": smells,
+            "total": len(smells),
+            "critical": sum(1 for s in smells if s["severity"] == "critical"),
+            "warning": sum(1 for s in smells if s["severity"] == "warning"),
+        })
+    except Exception as e:
+        print(f"[smells] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────
+# GET /api/timeline?repo=owner/name
+# ─────────────────────────────────────────
+@app.route("/api/timeline", methods=["GET"])
+def get_timeline():
+    """Fetch git commit timeline for a repository."""
+    repo_key = request.args.get("repo", "")
+    data = repo_store.get(repo_key)
+    if not data:
+        return jsonify({"error": "Repo not found. Run /api/analyze first."}), 404
+
+    meta = data.get("meta", {})
+    repo_url = meta.get("url", "")
+    if not repo_url:
+        repo_url = f"https://github.com/{repo_key}"
+
+    try:
+        timeline = build_timeline(repo_url)
+        return jsonify(timeline)
+    except Exception as e:
+        print(f"[timeline] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+# ─────────────────────────────────────────
+# POST /api/cache/invalidate
+# ─────────────────────────────────────────
+@app.route("/api/cache/invalidate", methods=["POST"])
+def invalidate_cache():
+    """Force-invalidate cache for a repo so next analysis re-fetches."""
+    data = request.json
+    repo_url = data.get("repo_url", "").strip()
+    if not repo_url:
+        return jsonify({"error": "repo_url required"}), 400
+
+    invalidate_repo_cache(repo_url)
+    return jsonify({"status": "ok", "message": f"Cache invalidated for {repo_url}"})
+
+
+# ─────────────────────────────────────────
 # GET /api/health — comprehensive health check
 # ─────────────────────────────────────────
 @app.route("/api/health", methods=["GET"])
@@ -358,6 +553,7 @@ def health():
         "claude": claude_info,
         "github_token": github_ok,
         "repos_loaded": len(repo_store),
+        "cache": cache_stats(),
     })
 
 

@@ -254,6 +254,101 @@ def chat_with_repo(
     )
 
 
+def stream_chat_with_repo(
+    message: str,
+    history: list,
+    repo_meta: dict,
+    context_chunks: list,
+    complexity: list,
+):
+    """
+    Generator that yields response tokens for SSE streaming.
+    Falls back to non-streaming if streaming not available.
+    """
+    engine  = active_engine()
+    context = _fmt_context(context_chunks)
+    repo    = repo_meta.get("full_name", "this repository")
+
+    # ── Ollama streaming ────────────────────────────────
+    if engine == "ollama":
+        hist_str = ""
+        for turn in history[-6:]:
+            role = turn.get("role", "")
+            content = turn.get("content", "")
+            if role == "user":        hist_str += f"User: {content}\n"
+            elif role == "assistant": hist_str += f"Assistant: {content}\n"
+
+        prompt = (
+            f"You are an expert code analysis AI for the GitHub repository: {repo}\n"
+            f"Description: {repo_meta.get('description','')}\n"
+            f"Language: {repo_meta.get('language','?')} | Stars: {repo_meta.get('stars',0):,}\n\n"
+            f"Relevant code from the repository:\n{context}\n\n"
+            f"{hist_str}"
+            f"User: {message}\n"
+            f"Assistant:"
+        )
+
+        try:
+            payload = json.dumps({
+                "model":  OLLAMA_MODEL,
+                "prompt": prompt,
+                "stream": True,
+                "options": {
+                    "num_predict": 500,
+                    "temperature": 0.7,
+                    "top_p": 0.9,
+                }
+            }).encode()
+            req = urllib.request.Request(
+                OLLAMA_URL + "/api/generate",
+                data=payload,
+                headers={"Content-Type": "application/json"},
+                method="POST"
+            )
+            with urllib.request.urlopen(req, timeout=120) as resp:
+                for line in resp:
+                    try:
+                        data = json.loads(line.decode())
+                        token = data.get("response", "")
+                        if token:
+                            yield token
+                        if data.get("done", False):
+                            return
+                    except json.JSONDecodeError:
+                        continue
+            return
+        except Exception as e:
+            print(f"[chat] Ollama streaming error: {e}")
+
+    # ── Claude streaming ────────────────────────────────
+    if engine == "claude" or _load_claude():
+        client = _load_claude()
+        if client:
+            system = _build_system(repo_meta, complexity)
+            msgs = []
+            for turn in history[-10:]:
+                if turn.get("role") in ("user", "assistant"):
+                    msgs.append({"role": turn["role"], "content": turn["content"]})
+            msgs.append({"role": "user", "content": f"Code context:\n{context}\n\nQuestion: {message}"})
+
+            try:
+                with client.messages.stream(
+                    model="claude-sonnet-4-20250514",
+                    max_tokens=800,
+                    system=system,
+                    messages=msgs,
+                ) as stream:
+                    for text in stream.text_stream:
+                        yield text
+                return
+            except Exception as e:
+                print(f"[chat] Claude streaming error: {e}")
+
+    # ── Fallback: non-streaming ─────────────────────────
+    result = chat_with_repo(message, history, repo_meta, context_chunks, complexity)
+    yield result
+
+
 def explain_file_content(file_data: dict, repo_meta: dict) -> str:
     name       = file_data.get("name", "unknown")
     lang       = file_data.get("lang", "")

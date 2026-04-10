@@ -4,644 +4,404 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description"
+    content="RepoLens Dashboard — AI-powered repository analysis with dependency graphs, complexity scoring, code smells, and RAG chat." />
   <title>Dashboard — RepoLens</title>
   <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
     rel="stylesheet" />
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
     rel="stylesheet" />
+  <link rel="stylesheet"
+    href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           colors: {
-            "primary": "#0051ae", "primary-container": "#0969da", "on-primary": "#ffffff",
-            "secondary": "#515f74", "secondary-container": "#d5e3fc", "on-secondary-container": "#57657a",
-            "tertiary": "#691dda", "on-tertiary": "#ffffff",
-            "surface": "#f7f9fb", "surface-container": "#eceef0", "surface-container-high": "#e6e8ea",
-            "surface-container-highest": "#e0e3e5", "surface-container-low": "#f2f4f6", "surface-container-lowest": "#ffffff",
-            "on-surface": "#191c1e", "on-surface-variant": "#424753",
-            "outline": "#727785", "outline-variant": "#c2c6d6",
-            "secondary-fixed": "#d5e3fc", "on-secondary-fixed-variant": "#3a485b",
-            "primary-fixed": "#d8e2ff",
-            "error": "#ba1a1a", "error-container": "#ffdad6", "on-error-container": "#93000a",
-          },
-          fontFamily: { sans: ["Inter", "sans-serif"], mono: ["JetBrains Mono", "monospace"] },
-          borderRadius: { DEFAULT: "0.375rem", lg: "0.625rem", xl: "0.875rem" }
+            "base": "#0D1117", "surface": "#161B22", "surface-high": "#1C2129",
+            "surface-higher": "#21262D", "surface-highest": "#2D333B",
+            "primary": "#6E40C9", "primary-light": "#8B5CF6", "primary-dim": "rgba(110,64,201,0.15)",
+            "success": "#3FB950", "info": "#58A6FF", "warning": "#F0883E", "danger": "#F85149",
+            "text-primary": "#E6EDF3", "text-secondary": "#8B949E", "text-muted": "#6E7681",
+            "border": "rgba(110,118,129,0.25)", "border-strong": "rgba(110,118,129,0.45)"
+          }, fontFamily: { sans: ["Inter", "sans-serif"], mono: ["JetBrains Mono", "monospace"] },
+          borderRadius: { DEFAULT: "0.5rem", lg: "0.75rem", xl: "1rem" }
         }
       }
     }
   </script>
-  <style>
-    * {
-      box-sizing: border-box;
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-    }
-
-    .material-symbols-outlined {
-      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-      display: inline-block;
-      line-height: 1;
-      text-transform: none;
-      letter-spacing: normal;
-      word-wrap: normal;
-      white-space: nowrap;
-      direction: ltr;
-      font-family: 'Material Symbols Outlined';
-    }
-
-    .fill {
-      font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24;
-    }
-
-    .ai-gradient {
-      background: linear-gradient(135deg, #0051ae 0%, #0969da 100%);
-    }
-
-    .glass {
-      background: rgba(255, 255, 255, 0.82);
-      backdrop-filter: blur(12px);
-    }
-
-    .scroll {
-      scrollbar-width: thin;
-      scrollbar-color: #c2c6d6 transparent;
-    }
-
-    .scroll::-webkit-scrollbar {
-      width: 4px;
-    }
-
-    .scroll::-webkit-scrollbar-thumb {
-      background: #c2c6d6;
-      border-radius: 10px;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg)
-      }
-    }
-
-    @keyframes bounce {
-
-      0%,
-      100% {
-        transform: translateY(0)
-      }
-
-      50% {
-        transform: translateY(-5px)
-      }
-    }
-
-    @keyframes pulse {
-
-      0%,
-      100% {
-        opacity: 1
-      }
-
-      50% {
-        opacity: 0.3
-      }
-    }
-
-    @keyframes fade-in {
-      from {
-        opacity: 0;
-        transform: translateY(6px)
-      }
-
-      to {
-        opacity: 1;
-        transform: translateY(0)
-      }
-    }
-
-    .spin {
-      animation: spin 1s linear infinite;
-    }
-
-    .b1 {
-      animation: bounce 1.2s ease-in-out infinite;
-      animation-delay: 0ms;
-    }
-
-    .b2 {
-      animation: bounce 1.2s ease-in-out infinite;
-      animation-delay: 180ms;
-    }
-
-    .b3 {
-      animation: bounce 1.2s ease-in-out infinite;
-      animation-delay: 360ms;
-    }
-
-    .pulse-dot {
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    .fade-in {
-      animation: fade-in 0.3s ease forwards;
-    }
-
-    .tab-btn {
-      border-bottom: 2px solid transparent;
-      transition: color 0.15s, border-color 0.15s;
-    }
-
-    .tab-btn.active {
-      border-color: #0051ae;
-      color: #0051ae;
-    }
-
-    .tab-content {
-      display: none;
-    }
-
-    .tab-content.active {
-      display: flex;
-      flex-direction: column;
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .file-row {
-      border-left: 2px solid transparent;
-      transition: background 0.1s;
-    }
-
-    .file-row.selected {
-      border-color: #0051ae;
-      background: rgba(0, 81, 174, 0.05);
-      color: #0051ae;
-    }
-
-    .file-row:not(.selected):hover {
-      background: #eceef0;
-    }
-
-    .chat-user {
-      background: #0051ae;
-      color: #fff;
-      border-radius: 1rem 1rem 0.25rem 1rem;
-    }
-
-    .chat-ai {
-      background: #fff;
-      border: 1px solid rgba(194, 198, 214, 0.35);
-      border-radius: 1rem 1rem 1rem 0.25rem;
-    }
-
-    /* D3 Graph */
-    #graph-svg .link {
-      stroke: #c2c6d6;
-      stroke-opacity: 0.65;
-    }
-
-    #graph-svg .node circle {
-      cursor: pointer;
-      transition: r 0.15s;
-    }
-
-    #graph-svg .node text {
-      font-family: 'JetBrains Mono', monospace;
-      pointer-events: none;
-      fill: #424753;
-    }
-
-    /* README rendered */
-    .readme h1 {
-      font-size: 1.5rem;
-      font-weight: 800;
-      margin: 0 0 0.5rem;
-      color: #191c1e;
-    }
-
-    .readme h2 {
-      font-size: 1.1rem;
-      font-weight: 700;
-      margin: 1.2rem 0 0.4rem;
-      color: #191c1e;
-    }
-
-    .readme h3 {
-      font-size: 0.95rem;
-      font-weight: 600;
-      margin: 0.8rem 0 0.3rem;
-      color: #424753;
-    }
-
-    .readme p {
-      margin-bottom: 0.5rem;
-      color: #424753;
-      line-height: 1.7;
-      font-size: 0.855rem;
-    }
-
-    .readme code {
-      background: #d5e3fc;
-      padding: 0.1rem 0.4rem;
-      border-radius: 4px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.77rem;
-      color: #3a485b;
-    }
-
-    .readme pre {
-      background: #1a1d20;
-      color: #e5e7eb;
-      padding: 1rem 1.2rem;
-      border-radius: 0.5rem;
-      overflow-x: auto;
-      margin: 0.6rem 0;
-    }
-
-    .readme pre code {
-      background: transparent;
-      color: inherit;
-      padding: 0;
-      font-size: 0.8rem;
-    }
-
-    .readme ul,
-    .readme ol {
-      margin-left: 1.2rem;
-      margin-bottom: 0.5rem;
-    }
-
-    .readme li {
-      margin-bottom: 0.2rem;
-      color: #424753;
-      font-size: 0.855rem;
-    }
-
-    .readme a {
-      color: #0051ae;
-      text-decoration: underline;
-    }
-
-    .readme hr {
-      border: none;
-      border-top: 1px solid #e6e8ea;
-      margin: 1rem 0;
-    }
-
-    .readme strong {
-      color: #191c1e;
-      font-weight: 600;
-    }
-
-    .readme blockquote {
-      border-left: 3px solid #0969da;
-      padding-left: 0.8rem;
-      color: #57657a;
-      font-style: italic;
-      margin: 0.5rem 0;
-    }
-
-    .readme table {
-      width: 100%;
-      border-collapse: collapse;
-      font-size: 0.82rem;
-      margin: 0.5rem 0;
-    }
-
-    .readme th {
-      background: #f2f4f6;
-      padding: 0.4rem 0.7rem;
-      text-align: left;
-      font-weight: 600;
-      border: 1px solid #e0e3e5;
-    }
-
-    .readme td {
-      padding: 0.4rem 0.7rem;
-      border: 1px solid #e0e3e5;
-    }
-
-    input,
-    textarea {
-      outline: none !important;
-      box-shadow: none !important;
-    }
-  </style>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 
-<body class="bg-surface text-on-surface h-screen w-screen overflow-hidden flex flex-col">
+<body class="bg-base font-sans text-text-primary h-screen w-screen overflow-hidden flex flex-col">
+
+  <!-- Toast Container -->
+  <div id="toast-container" class="fixed top-5 right-5 z-[999] space-y-2"></div>
 
   <!-- HEADER -->
-  <header
-    class="flex items-center justify-between px-5 py-2.5 bg-surface border-b border-surface-container-high z-10 shrink-0">
-    <div class="flex items-center gap-5">
-      <a href="index.html" class="flex items-center gap-2.5 hover:opacity-80 transition-opacity">
-        <div class="size-8 ai-gradient rounded-lg flex items-center justify-center text-white">
-          <span class="material-symbols-outlined fill" style="font-size:18px">terminal</span>
+  <header class="flex items-center justify-between px-4 py-2 bg-surface border-b border-border z-10 shrink-0">
+    <div class="flex items-center gap-4">
+      <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+        <div class="w-7 h-7 ai-gradient rounded-lg flex items-center justify-center text-white">
+          <span class="material-symbols-outlined fill" style="font-size:16px">terminal</span>
         </div>
         <span class="text-sm font-bold tracking-tight">RepoLens</span>
       </a>
-      <div class="h-5 w-px bg-surface-container-highest"></div>
-      <div class="flex items-center gap-1.5 px-3 py-1 bg-surface-container-low rounded-lg">
-        <span class="material-symbols-outlined fill text-primary" style="font-size:14px">account_tree</span>
-        <span id="header-repo" class="text-xs font-medium text-on-surface-variant font-mono">loading...</span>
-        <span class="material-symbols-outlined text-outline" style="font-size:14px">chevron_right</span>
-        <span id="header-branch" class="text-xs text-on-surface-variant">main</span>
+      <div class="h-4 w-px bg-surface-highest"></div>
+      <div class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-high rounded-lg border border-border">
+        <span class="material-symbols-outlined fill text-primary-light" style="font-size:13px">account_tree</span>
+        <span id="header-repo" class="text-xs font-medium text-text-secondary font-mono">loading…</span>
       </div>
-      <!-- Stats pills -->
       <div class="hidden sm:flex items-center gap-2">
         <span id="pill-files"
-          class="px-2 py-0.5 bg-surface-container rounded-full text-[10px] font-mono text-on-surface-variant">?
-          files</span>
+          class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? files</span>
         <span id="pill-lines"
-          class="px-2 py-0.5 bg-surface-container rounded-full text-[10px] font-mono text-on-surface-variant">?
-          lines</span>
+          class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? lines</span>
         <span id="pill-lang"
-          class="px-2 py-0.5 bg-secondary-container rounded-full text-[10px] font-bold text-on-secondary-fixed-variant">?</span>
+          class="px-2 py-0.5 bg-primary-dim rounded-full text-[10px] font-bold text-primary-light">?</span>
       </div>
     </div>
-    <div class="flex items-center gap-3">
-      <div class="flex items-center bg-surface-container-highest rounded-lg px-3 py-1.5 w-48">
-        <span class="material-symbols-outlined text-on-surface-variant mr-2" style="font-size:15px">search</span>
-        <input id="file-search" type="text" placeholder="Filter files..." oninput="filterTree()"
-          class="bg-transparent border-none text-xs w-full p-0 placeholder:text-outline" />
+    <div class="flex items-center gap-2">
+      <div class="flex items-center bg-surface-highest rounded-lg px-3 py-1.5 w-44">
+        <span class="material-symbols-outlined text-text-muted mr-2" style="font-size:14px">search</span>
+        <input id="file-search" type="text" placeholder="Filter files…" oninput="filterTree()"
+          class="bg-transparent border-none text-xs w-full p-0 placeholder:text-text-muted text-text-primary" />
       </div>
+      <button id="force-reanalyze-btn" onclick="forceReanalyze()" title="Force re-analyze (clear cache)"
+        class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-warning hover:border-warning/30 text-xs font-medium transition-all">
+        <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
+      </button>
       <a href="index.html"
-        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-container text-on-surface-variant hover:bg-surface-container-high text-xs font-medium transition-colors">
-        <span class="material-symbols-outlined" style="font-size:15px">add</span>
-        New Repo
+        class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-text-primary text-xs font-medium transition-all">
+        <span class="material-symbols-outlined" style="font-size:14px">add</span>New
       </a>
     </div>
   </header>
 
-  <div class="flex flex-1 overflow-hidden">
+  <div class="flex flex-1 overflow-hidden relative">
+    <!-- Sidebar Toggle (visible when collapsed) -->
+    <button id="sidebar-toggle" onclick="toggleSidebar()" class="sidebar-toggle hidden" title="Toggle sidebar">
+      <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
+    </button>
 
-    <!-- SIDEBAR: File Explorer -->
-    <aside class="w-64 bg-surface-container-low flex flex-col border-r border-transparent shrink-0">
-      <div class="px-4 py-3 flex items-center justify-between border-b border-outline-variant/10">
-        <span class="text-[10px] font-bold uppercase tracking-widest text-on-surface-variant">Explorer</span>
-        <button onclick="toggleFolders()" class="text-primary text-[10px] font-semibold hover:underline">Toggle
-          All</button>
-      </div>
-      <nav id="file-tree" class="flex-1 overflow-y-auto px-2 py-1.5 scroll space-y-px"></nav>
-      <div class="p-3 border-t border-outline-variant/10 space-y-2">
-        <button onclick="explainSelectedFile()"
-          class="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-secondary-container text-on-secondary-fixed-variant rounded-lg text-xs font-bold hover:opacity-90 transition-all">
-          <span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span>
-          Explain Selected File
-        </button>
-        <button onclick="triggerReadme()"
-          class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-surface-container-highest text-on-surface-variant rounded-lg text-xs font-semibold hover:bg-surface-container-high transition-all">
-          <span class="material-symbols-outlined" style="font-size:14px">description</span>
-          Generate README
-        </button>
+    <!-- LEFT SIDEBAR: File Explorer -->
+    <aside id="sidebar" class="sidebar" style="width:280px">
+      <div class="flex-1 flex flex-col overflow-hidden">
+        <div class="px-3 py-2.5 flex items-center justify-between border-b border-border">
+          <div class="flex items-center gap-2">
+            <span class="material-symbols-outlined text-text-muted" style="font-size:14px">folder_open</span>
+            <span class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Explorer</span>
+          </div>
+          <div class="flex items-center gap-1">
+            <button onclick="toggleFolders()"
+              class="text-primary-light text-[10px] font-semibold hover:underline">Toggle</button>
+            <button onclick="toggleSidebar()" class="text-text-muted hover:text-text-primary ml-1"
+              title="Collapse sidebar">
+              <span class="material-symbols-outlined" style="font-size:14px">chevron_left</span>
+            </button>
+          </div>
+        </div>
+        <nav id="file-tree" class="flex-1 overflow-y-auto px-2 py-1 scroll space-y-px"></nav>
+        <div class="p-2.5 border-t border-border space-y-1.5">
+          <button onclick="explainSelectedFile()"
+            class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-primary-dim text-primary-light rounded-lg text-xs font-bold hover:bg-primary/20 transition-all">
+            <span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Explain File
+          </button>
+          <button onclick="triggerReadme()"
+            class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-surface-higher text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all">
+            <span class="material-symbols-outlined" style="font-size:13px">description</span>README
+          </button>
+        </div>
       </div>
     </aside>
 
     <!-- MAIN CONTENT -->
-    <main class="flex-1 bg-surface-container-lowest flex flex-col overflow-hidden">
-
-      <!-- Tabs -->
-      <div class="flex border-b border-surface-container px-5 shrink-0">
-        <button class="tab-btn active px-5 py-3.5 text-xs font-bold" onclick="switchTab('summary',this)">
-          <span class="material-symbols-outlined"
-            style="font-size:14px;vertical-align:middle;margin-right:4px">dashboard</span>Summary
-        </button>
-        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface"
-          onclick="switchTab('graph',this)">
-          <span class="material-symbols-outlined"
-            style="font-size:14px;vertical-align:middle;margin-right:4px">hub</span>Dependency Graph
-        </button>
-        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface"
-          onclick="switchTab('complexity',this)">
-          <span class="material-symbols-outlined"
-            style="font-size:14px;vertical-align:middle;margin-right:4px">analytics</span>Complexity
-        </button>
-        <button class="tab-btn px-5 py-3.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface"
-          id="readme-tab-btn" onclick="switchTab('readme',this)">
-          <span class="material-symbols-outlined"
-            style="font-size:14px;vertical-align:middle;margin-right:4px">description</span>README
-        </button>
+    <main class="flex-1 bg-base flex flex-col overflow-hidden">
+      <!-- Tab Bar -->
+      <div class="flex border-b border-border px-4 shrink-0 bg-surface">
+        <button class="tab-btn active px-4 py-3 text-xs font-bold" onclick="switchTab('summary',this)"><span
+            class="material-symbols-outlined"
+            style="font-size:13px;vertical-align:middle;margin-right:4px">dashboard</span>Summary</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('graph',this)"><span
+            class="material-symbols-outlined"
+            style="font-size:13px;vertical-align:middle;margin-right:4px">hub</span>Graph</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('complexity',this)"><span
+            class="material-symbols-outlined"
+            style="font-size:13px;vertical-align:middle;margin-right:4px">analytics</span>Complexity</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="chat-tab-btn" onclick="switchTab('chat',this)"><span
+            class="material-symbols-outlined"
+            style="font-size:13px;vertical-align:middle;margin-right:4px">forum</span>Chat</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="timeline-tab-btn"
+          onclick="switchTab('timeline',this)"><span class="material-symbols-outlined"
+            style="font-size:13px;vertical-align:middle;margin-right:4px">timeline</span>Timeline</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="smells-tab-btn"
+          onclick="switchTab('smells',this)"><span class="material-symbols-outlined"
+            style="font-size:13px;vertical-align:middle;margin-right:4px">bug_report</span>Smells</button>
+        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="readme-tab-btn"
+          onclick="switchTab('readme',this)"><span class="material-symbols-outlined"
+            style="font-size:13px;vertical-align:middle;margin-right:4px">description</span>README</button>
       </div>
 
-      <!-- ── TAB: Summary ── -->
-      <div id="tab-summary" class="tab-content active overflow-y-auto p-7 scroll">
-        <div class="w-full space-y-8">
+      <!-- TAB: Summary -->
+      <div id="tab-summary" class="tab-content active overflow-y-auto p-6 scroll">
+        <div class="w-full space-y-6">
           <div>
-            <h1 id="sum-name" class="text-2xl font-bold tracking-tight text-on-surface mb-1.5">Loading...</h1>
-            <p id="sum-desc" class="text-on-surface-variant text-sm leading-relaxed"></p>
+            <h1 id="sum-name" class="text-2xl font-bold tracking-tight mb-1.5">Loading…</h1>
+            <p id="sum-desc" class="text-text-secondary text-sm leading-relaxed"></p>
             <div class="flex flex-wrap gap-2 mt-3" id="sum-topics"></div>
           </div>
-
-          <!-- Stat cards -->
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div class="p-4 rounded-xl bg-surface-container-low">
-              <div class="text-2xl font-black text-on-surface mb-0.5" id="s-files">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Files Analyzed
-              </div>
+          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 stats-grid">
+            <div class="p-4 rounded-xl bg-surface border border-border">
+              <div class="text-2xl font-black mb-0.5" id="s-files">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Files Analyzed</div>
             </div>
-            <div class="p-4 rounded-xl bg-surface-container-low">
-              <div class="text-2xl font-black text-on-surface mb-0.5" id="s-lines">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Total Lines</div>
+            <div class="p-4 rounded-xl bg-surface border border-border">
+              <div class="text-2xl font-black mb-0.5" id="s-lines">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Total Lines</div>
             </div>
-            <div class="p-4 rounded-xl bg-surface-container-low">
-              <div class="text-2xl font-black text-on-surface mb-0.5" id="s-funcs">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Functions</div>
+            <div class="p-4 rounded-xl bg-surface border border-border">
+              <div class="text-2xl font-black mb-0.5" id="s-funcs">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Functions</div>
             </div>
-            <div class="p-4 rounded-xl bg-surface-container-low">
-              <div class="text-2xl font-black text-primary mb-0.5" id="s-cmplx">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-on-surface-variant font-semibold">Avg Complexity
-              </div>
+            <div class="p-4 rounded-xl bg-surface border border-border">
+              <div class="text-2xl font-black text-primary-light mb-0.5" id="s-cmplx">–</div>
+              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Avg Complexity</div>
             </div>
           </div>
-
-          <!-- Graph insights -->
-          <div id="graph-insights" class="grid grid-cols-1 sm:grid-cols-2 gap-4"></div>
-
-          <!-- Complexity heatmap table -->
+          <div id="graph-insights" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+          <div id="smell-summary-card" class="hidden"></div>
           <div>
-            <h3 class="text-sm font-bold text-on-surface mb-4">Complexity Heatmap</h3>
-            <div
-              class="overflow-hidden rounded-xl bg-surface-container-lowest border border-outline-variant/20 shadow-sm">
+            <h3 class="text-sm font-bold mb-4">Complexity Heatmap</h3>
+            <div class="overflow-hidden rounded-xl bg-surface border border-border">
               <table class="w-full text-left">
-                <thead class="bg-surface-container-low">
-                  <tr class="text-[10px] uppercase tracking-wider text-on-surface-variant font-bold">
-                    <th class="px-5 py-3">File</th>
-                    <th class="px-5 py-3">Score</th>
-                    <th class="px-5 py-3">Grade</th>
-                    <th class="px-5 py-3 text-right">Lines</th>
+                <thead class="bg-surface-high">
+                  <tr class="text-[10px] uppercase tracking-wider text-text-secondary font-bold">
+                    <th class="px-4 py-2.5">File</th>
+                    <th class="px-4 py-2.5">Score</th>
+                    <th class="px-4 py-2.5">Grade</th>
+                    <th class="px-4 py-2.5 text-right">Lines</th>
                   </tr>
                 </thead>
-                <tbody id="heat-table" class="divide-y divide-surface-container text-xs"></tbody>
+                <tbody id="heat-table" class="divide-y divide-border text-xs"></tbody>
               </table>
             </div>
           </div>
-
-          <!-- Dep graph placeholder -->
-          <div
-            class="h-44 rounded-2xl bg-surface-container border-2 border-dashed border-outline-variant/40 flex flex-col items-center justify-center gap-3">
-            <span class="material-symbols-outlined text-outline-variant" style="font-size:36px">hub</span>
-            <p class="text-on-surface-variant text-sm font-medium">Interactive Dependency Graph</p>
-            <button onclick="switchTab('graph', document.querySelectorAll('.tab-btn')[1])"
-              class="px-4 py-1.5 bg-surface-container-lowest text-primary border border-primary/30 rounded-lg text-xs font-bold hover:bg-primary/5 transition-colors">Open
-              Graph →</button>
-          </div>
         </div>
       </div>
 
-      <!-- ── TAB: Dependency Graph ── -->
+      <!-- TAB: Graph -->
       <div id="tab-graph" class="tab-content">
-        <div
-          class="flex items-center justify-between px-6 py-3.5 border-b border-surface-container bg-surface-container-lowest shrink-0">
+        <div class="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
           <div>
-            <h3 class="text-sm font-bold text-on-surface">Import Dependency Graph</h3>
-            <p class="text-xs text-on-surface-variant mt-0.5" id="graph-subtitle">Nodes = files · Arrows = import
-              relationships · Drag to rearrange · Scroll to zoom</p>
+            <h3 class="text-sm font-bold">Import Dependency Graph</h3>
+            <p class="text-xs text-text-secondary mt-0.5" id="graph-subtitle">Drag to rearrange · Scroll to zoom</p>
           </div>
-          <div class="flex items-center gap-5 text-xs text-on-surface-variant">
+          <div class="flex items-center gap-3 text-xs text-text-secondary">
             <div class="flex items-center gap-1.5">
-              <div class="size-3 rounded-full bg-blue-500 opacity-80"></div>Low
+              <div class="w-3 h-3 rounded-full" style="background:#58A6FF"></div>.py
             </div>
             <div class="flex items-center gap-1.5">
-              <div class="size-3 rounded-full bg-yellow-400"></div>Medium
+              <div class="w-3 h-3 rounded-full" style="background:#F0883E"></div>.js
             </div>
             <div class="flex items-center gap-1.5">
-              <div class="size-3 rounded-full bg-orange-500"></div>High
+              <div class="w-3 h-3 rounded-full" style="background:#3FB950"></div>.ts
             </div>
             <div class="flex items-center gap-1.5">
-              <div class="size-3 rounded-full bg-red-500"></div>Critical
+              <div class="w-3 h-3 rounded-full" style="background:#F85149"></div>.html
             </div>
+            <div class="h-3 w-px bg-surface-highest"></div>
+            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+              <input type="checkbox" id="cluster-toggle" onchange="renderGraph()"
+                class="w-3 h-3 rounded accent-primary" />
+              <span class="text-[11px]">Cluster by folder</span>
+            </label>
             <button onclick="renderGraph()"
-              class="ml-2 px-3 py-1 bg-surface-container rounded-lg hover:bg-surface-container-high transition-colors text-[12px] font-semibold">↺
+              class="px-2.5 py-1 bg-surface-higher border border-border rounded-lg hover:border-primary/30 text-[11px] font-semibold transition-all">↺
               Reset</button>
           </div>
         </div>
-        <div class="flex-1 relative overflow-hidden bg-surface-container-low" id="graph-area">
-          <svg id="graph-svg" class="w-full h-full"></svg>
+        <div class="flex-1 relative overflow-hidden bg-base" id="graph-area"><svg id="graph-svg"
+            class="w-full h-full"></svg>
           <div id="graph-tooltip"
-            class="hidden absolute bg-surface-container-lowest border border-outline-variant/20 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-44 max-w-56">
+            class="hidden absolute bg-surface border border-border rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-48 max-w-64">
           </div>
         </div>
       </div>
 
-      <!-- ── TAB: Complexity ── -->
-      <div id="tab-complexity" class="tab-content overflow-y-auto p-7 scroll">
+      <!-- TAB: Complexity -->
+      <div id="tab-complexity" class="tab-content overflow-y-auto p-6 scroll">
         <div class="w-full">
-          <div class="flex items-center justify-between mb-6">
-            <h3 class="text-sm font-bold text-on-surface">Code Quality Analysis</h3>
-            <div class="flex items-center gap-3 text-xs text-on-surface-variant">
-              <span>Sort by:</span>
-              <select id="sort-select" onchange="renderComplexityCards()"
-                class="text-xs bg-surface-container border-none rounded-lg px-2 py-1 text-on-surface-variant cursor-pointer">
-                <option value="score">Complexity</option>
-                <option value="lines">Lines of Code</option>
-                <option value="functions">Functions</option>
-              </select>
+          <div id="most-complex-callout" class="most-complex-callout mb-6 hidden"></div>
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-sm font-bold">Code Quality Analysis</h3>
+            <select id="sort-select" onchange="renderComplexityCards()"
+              class="text-xs bg-surface-higher border border-border rounded-lg px-2 py-1 cursor-pointer text-text-secondary">
+              <option value="score">Complexity</option>
+              <option value="lines">Lines</option>
+              <option value="functions">Functions</option>
+            </select>
+          </div>
+          <div id="complexity-cards" class="space-y-2.5"></div>
+        </div>
+      </div>
+
+      <!-- TAB: Chat (Code Viewer + AI Chat split) -->
+      <div id="tab-chat" class="tab-content overflow-hidden">
+        <div class="flex flex-1 overflow-hidden h-full">
+          <!-- Left: Code Viewer -->
+          <div class="flex-1 flex flex-col border-r border-border min-w-0">
+            <div class="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-surface">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined text-primary-light" style="font-size:15px">code</span>
+                <span id="viewer-filename" class="text-xs font-mono font-bold truncate">Select a file from the
+                  explorer</span>
+              </div>
+              <div id="viewer-stats" class="text-[10px] text-text-muted shrink-0"></div>
+            </div>
+            <div id="viewer-content" class="flex-1 overflow-auto p-0 scroll">
+              <div class="flex flex-col items-center justify-center h-full text-text-secondary text-sm gap-3">
+                <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">code</span>
+                <p>Click a file in the Explorer to view its code</p>
+                <p class="text-[10px] text-text-muted">The AI chat can reference the selected file</p>
+              </div>
             </div>
           </div>
-          <div id="complexity-cards" class="space-y-3"></div>
+          <!-- Resize Handle -->
+          <div id="chat-resize-handle" class="chat-resize-handle" title="Drag to resize"></div>
+          <!-- Right: Chat Panel -->
+          <div id="chat-panel" class="flex flex-col shrink-0 bg-surface"
+            style="width:384px;min-width:280px;max-width:700px">
+            <div class="px-3 py-2 border-b border-border flex items-center justify-between shrink-0">
+              <div class="flex items-center gap-2">
+                <span class="material-symbols-outlined fill text-primary-light"
+                  style="font-size:15px">auto_awesome</span>
+                <span class="text-xs font-bold">AI Chat</span>
+              </div>
+              <div class="flex items-center gap-1.5">
+                <div id="engine-dot" class="w-1.5 h-1.5 rounded-full bg-success pulse-dot"></div>
+                <span id="engine-label"
+                  class="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Online</span>
+              </div>
+            </div>
+            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-3 scroll"></div>
+            <div class="p-3 border-t border-border shrink-0">
+              <div id="starter-questions" class="flex flex-wrap gap-1.5 mb-2.5">
+                <button onclick="sendQuick('What does this repo do?')"
+                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">What
+                  does it do?</button>
+                <button onclick="sendQuick('Which file is most complex?')"
+                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Most
+                  complex?</button>
+                <button onclick="sendQuick('What are the main entry points?')"
+                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Entry
+                  points?</button>
+                <button onclick="sendQuick('Are there any code smells?')"
+                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Code
+                  smells?</button>
+              </div>
+              <div class="relative flex items-end gap-2">
+                <div
+                  class="flex-1 bg-surface-high rounded-xl overflow-hidden border border-border focus-within:border-primary/40 transition-all">
+                  <textarea id="chat-input" rows="1" placeholder="Ask about this repo…"
+                    class="w-full bg-transparent border-none text-xs p-3 resize-none max-h-28 text-text-primary placeholder:text-text-muted"
+                    onkeydown="onChatKey(event)"></textarea>
+                </div>
+                <button onclick="sendChat()"
+                  class="w-9 h-9 flex items-center justify-center rounded-xl ai-gradient text-white shadow-lg hover:shadow-primary/30 shrink-0"><span
+                    class="material-symbols-outlined" style="font-size:16px">send</span></button>
+              </div>
+              <p class="text-[9px] text-center text-text-muted mt-2">Powered by Ollama / Claude · RAG via ChromaDB</p>
+            </div>
+          </div>
         </div>
       </div>
 
-      <!-- ── TAB: README ── -->
-      <div id="tab-readme" class="tab-content overflow-y-auto p-7 scroll">
+      <!-- TAB: Timeline -->
+      <div id="tab-timeline" class="tab-content overflow-y-auto p-6 scroll">
         <div class="w-full">
           <div class="flex items-center justify-between mb-5">
-            <h3 class="text-sm font-bold text-on-surface">Auto-Generated README</h3>
+            <h3 class="text-sm font-bold">Git Timeline</h3>
+            <button onclick="sendQuick('What changed in the last 30 days?')"
+              class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-dim text-primary-light rounded-lg text-[11px] font-semibold hover:bg-primary/20 transition-all">
+              <span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Ask AI
+            </button>
+          </div>
+          <div id="timeline-content" class="space-y-6">
+            <div class="text-center py-12 text-text-secondary">
+              <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">timeline</span>
+              <p class="mt-3 text-sm">Loading timeline data…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: Smells -->
+      <div id="tab-smells" class="tab-content overflow-y-auto p-6 scroll">
+        <div class="w-full">
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-sm font-bold">Code Smells</h3>
+            <div class="flex items-center gap-3">
+              <span id="smell-critical-count" class="text-xs font-bold text-danger">0 critical</span>
+              <span id="smell-warning-count" class="text-xs font-bold text-warning">0 warnings</span>
+            </div>
+          </div>
+          <div id="smells-list" class="space-y-2">
+            <div class="text-center py-12 text-text-secondary">
+              <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">bug_report</span>
+              <p class="mt-3 text-sm">Loading code smell analysis…</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- TAB: README -->
+      <div id="tab-readme" class="tab-content overflow-y-auto p-6 scroll">
+        <div class="w-full">
+          <div class="flex items-center justify-between mb-5">
+            <h3 class="text-sm font-bold">Auto-Generated README</h3>
             <div class="flex gap-2">
               <button onclick="generateReadme()" id="readme-btn"
-                class="flex items-center gap-1.5 px-3.5 py-2 ai-gradient text-on-primary rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">
-                <span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span>
-                Generate with AI
-              </button>
+                class="flex items-center gap-1.5 px-3.5 py-2 ai-gradient text-white rounded-lg text-xs font-bold hover:opacity-90"><span
+                  class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Generate with
+                AI</button>
               <button onclick="copyReadme()"
-                class="flex items-center gap-1.5 px-3 py-2 bg-surface-container text-on-surface-variant rounded-lg text-xs font-semibold hover:bg-surface-container-high transition-colors">
-                <span class="material-symbols-outlined" style="font-size:14px">content_copy</span>
-                Copy
-              </button>
+                class="flex items-center gap-1.5 px-3 py-2 bg-surface-higher border border-border text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all"><span
+                  class="material-symbols-outlined" style="font-size:13px">content_copy</span>Copy</button>
             </div>
           </div>
-          <div id="readme-output"
-            class="readme bg-surface-container-lowest rounded-xl p-6 border border-outline-variant/15 min-h-64">
-            <div class="flex flex-col items-center justify-center h-40 gap-3 text-center">
-              <span class="material-symbols-outlined text-outline-variant" style="font-size:40px">description</span>
-              <p class="text-sm text-on-surface-variant">Click "Generate with AI" to create a professional README using
-                Claude</p>
+          <div id="readme-output" class="readme bg-surface rounded-xl p-6 border border-border min-h-64">
+            <div class="flex flex-col items-center justify-center h-40 gap-3 text-center"><span
+                class="material-symbols-outlined text-text-muted" style="font-size:40px;opacity:.3">description</span>
+              <p class="text-sm text-text-secondary">Click "Generate with AI" to create a README</p>
             </div>
           </div>
         </div>
       </div>
-
-    </main><!-- /MAIN -->
-
-    <!-- RIGHT: AI Chat -->
-    <aside class="w-80 bg-surface-container-low border-l border-surface-container flex flex-col shrink-0">
-      <div
-        class="px-4 py-3 border-b border-surface-container bg-surface-container-lowest flex items-center justify-between shrink-0">
-        <div class="flex items-center gap-2">
-          <span class="material-symbols-outlined fill text-tertiary" style="font-size:18px">auto_awesome</span>
-          <span class="text-xs font-bold tracking-tight">Repo AI Assistant</span>
-        </div>
-        <div class="flex items-center gap-1.5">
-          <div class="size-1.5 rounded-full bg-green-500 pulse-dot"></div>
-          <span class="text-[9px] font-bold text-on-surface-variant uppercase tracking-wider">Online</span>
-        </div>
-      </div>
-
-      <!-- Messages -->
-      <div id="chat-messages" class="flex-1 overflow-y-auto p-3.5 space-y-3.5 scroll"></div>
-
-      <!-- Input -->
-      <div class="p-3 bg-surface-container-lowest border-t border-surface-container shrink-0">
-        <!-- Quick prompts -->
-        <div class="flex flex-wrap gap-1.5 mb-2.5">
-          <button onclick="sendQuick('What does this repo do?')"
-            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">What
-            does it do?</button>
-          <button onclick="sendQuick('Which file handles authentication?')"
-            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">Auth
-            logic?</button>
-          <button onclick="sendQuick('What are the main entry points of this project?')"
-            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">Entry
-            points?</button>
-          <button onclick="sendQuick('How do I add a new API endpoint following the existing patterns?')"
-            class="px-2.5 py-1 bg-surface-container rounded-full text-[10px] font-medium text-on-surface-variant hover:bg-surface-container-high transition-colors">Add
-            endpoint?</button>
-        </div>
-        <div class="relative flex items-end gap-2">
-          <div
-            class="flex-1 bg-surface-container rounded-xl overflow-hidden focus-within:bg-surface-container-lowest focus-within:ring-2 focus-within:ring-primary/20 transition-all border border-transparent focus-within:border-primary/30">
-            <textarea id="chat-input" rows="1" placeholder="Ask about this repo..."
-              class="w-full bg-transparent border-none text-xs p-3 resize-none max-h-28"
-              onkeydown="onChatKey(event)"></textarea>
-          </div>
-          <button onclick="sendChat()"
-            class="size-10 flex items-center justify-center rounded-xl ai-gradient text-white shadow-lg hover:shadow-primary/30 transition-shadow shrink-0">
-            <span class="material-symbols-outlined" style="font-size:18px">send</span>
-          </button>
-        </div>
-        <p class="text-[9px] text-center text-outline mt-2">Powered by Claude · RAG via ChromaDB</p>
-      </div>
-    </aside>
-
-  </div><!-- /flex -->
+    </main>
+  </div>
 
   <script>
-    const API = "http://localhost:5000/api";
+    const API = window.location.origin + '/api';
 
     // ── State ──────────────────────────────────
-    let repoData = null;      // full API response from /analyze
-    let repoKey = "";
-    let selectedFile = null;
-    let chatHistory = [];
-    let readmeRaw = "";
-    let complexityData = [];
-    let graphData = null;
+    let repoData = null, repoKey = '', selectedFile = null;
+    let chatHistory = [], readmeRaw = '', complexityData = [], graphData = null;
+    let smellsData = [], timelineData = null, currentRepoUrl = '';
+
+    // ── Toast ──────────────────────────────────
+    function toast(msg, type = 'info', duration = 4000) {
+      const c = document.getElementById('toast-container');
+      const el = document.createElement('div');
+      el.className = `toast toast-${type}`;
+      const icons = { success: 'check_circle', error: 'error', info: 'info' };
+      el.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:18px">${icons[type] || 'info'}</span><span>${msg}</span>`;
+      c.appendChild(el);
+      setTimeout(() => { el.classList.add('removing'); setTimeout(() => el.remove(), 300); }, duration);
+    }
 
     // ── Init ──────────────────────────────────
     window.onload = async function () {
@@ -655,35 +415,30 @@
 
       if (raw) {
         repoData = JSON.parse(raw);
-        if (repoData?.repo_key) {
-          sessionStorage.setItem('repoKey', repoData.repo_key);
-        }
+        if (repoData?.repo_key) sessionStorage.setItem('repoKey', repoData.repo_key);
       } else {
         const resp = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKeyOnly)}`);
-        if (!resp.ok) {
-          window.location.href = 'index.html';
-          return;
-        }
+        if (!resp.ok) { window.location.href = 'index.html'; return; }
         repoData = await resp.json();
       }
 
-      repoKey = repoData.repo_key || repoData.meta?.full_name || repoKeyOnly || "";
-      // Validate backend still has this repository (server may have restarted).
+      repoKey = repoData.repo_key || repoData.meta?.full_name || repoKeyOnly || '';
+
+      // Validate backend still has this repository
       try {
         const verify = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKey)}`);
         if (verify.ok) {
           repoData = await verify.json();
         } else if (verify.status === 404) {
           sessionStorage.removeItem('repoData');
-          addMsg('ai', '<span class="text-error">Backend restarted and no longer has this repo in memory. Please go back and run Analyze again.</span>', true);
+          addMsg('ai', '<span class="text-danger">Backend restarted. Please go back and run Analyze again.</span>', true);
           return;
         }
-      } catch (e) {
-        // Keep existing UI data if health check fails; chat handlers already show network errors.
-      }
+      } catch (e) { /* keep existing data */ }
 
       complexityData = repoData.complexity || [];
       graphData = repoData.graph || null;
+      currentRepoUrl = repoData.meta?.url || `https://github.com/${repoKey}`;
 
       // Tab panel display fix
       document.querySelectorAll('.tab-content').forEach((el, i) => {
@@ -700,164 +455,115 @@
       renderGraphInsights();
       renderComplexityCards();
       initChat();
+
+      // Load smells and timeline async
+      loadSmells();
+      loadTimeline();
     };
+
+    // ── Force Re-analyze ──────────────────────
+    function forceReanalyze() {
+      if (!currentRepoUrl) { toast('No repo URL', 'info'); return; }
+      sessionStorage.setItem('forceReanalyze', currentRepoUrl);
+      window.location.href = 'index.html';
+    }
 
     // ── Header ────────────────────────────────
     function populateHeader() {
       const m = repoData.meta;
       document.getElementById('header-repo').textContent = m.full_name;
-      document.getElementById('header-branch').textContent = m.default_branch || 'main';
       document.getElementById('pill-files').textContent = repoData.stats?.total_files + ' files';
       document.getElementById('pill-lines').textContent = fmtNum(repoData.stats?.total_lines) + ' lines';
       document.getElementById('pill-lang').textContent = m.language || '?';
-      document.title = m.full_name + ' — RepoAI';
+      document.title = m.full_name + ' — RepoLens';
     }
 
     // ── Summary ───────────────────────────────
     function populateSummary() {
-      const m = repoData.meta;
-      const s = repoData.stats;
+      const m = repoData.meta, s = repoData.stats;
       document.getElementById('sum-name').textContent = m.full_name;
       document.getElementById('sum-desc').textContent = m.description || '';
       document.getElementById('s-files').textContent = s?.total_files ?? '–';
       document.getElementById('s-lines').textContent = fmtNum(s?.total_lines);
       document.getElementById('s-funcs').textContent = fmtNum(s?.total_functions);
       document.getElementById('s-cmplx').textContent = s?.avg_complexity ?? '–';
-
-      // Topics
-      const topics = m.topics || [];
-      document.getElementById('sum-topics').innerHTML = topics.map(t =>
-        `<span class="px-2.5 py-0.5 bg-secondary-container text-on-secondary-fixed-variant text-[10px] font-semibold rounded-full">${t}</span>`
-      ).join('');
+      document.getElementById('sum-topics').innerHTML = (m.topics || []).map(t => `<span class="px-2.5 py-0.5 bg-primary-dim text-primary-light text-[10px] font-semibold rounded-full">${t}</span>`).join('');
     }
 
-    // ── Graph Insights ─────────────────────────
     function renderGraphInsights() {
-      const g = graphData?.metrics;
-      if (!g) return;
-      const el = document.getElementById('graph-insights');
-      el.innerHTML = `
-    <div class="p-4 rounded-xl bg-surface-container-low">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="material-symbols-outlined text-primary" style="font-size:18px">hub</span>
-        <span class="text-xs font-bold text-on-surface">Dependency Graph</span>
-      </div>
-      <div class="grid grid-cols-2 gap-2 text-xs">
-        <div class="text-on-surface-variant">Nodes (files)</div><div class="font-mono font-bold text-on-surface">${g.total_nodes}</div>
-        <div class="text-on-surface-variant">Edges (imports)</div><div class="font-mono font-bold text-on-surface">${g.total_edges}</div>
-        <div class="text-on-surface-variant">Circular deps</div><div class="font-mono font-bold ${g.cycles_detected > 0 ? 'text-error' : 'text-green-600'}">${g.cycles_detected}</div>
-        <div class="text-on-surface-variant">Isolated files</div><div class="font-mono font-bold text-on-surface">${g.isolated_files?.length || 0}</div>
-      </div>
-    </div>
-    <div class="p-4 rounded-xl bg-surface-container-low">
-      <div class="flex items-center gap-2 mb-3">
-        <span class="material-symbols-outlined text-tertiary" style="font-size:18px">star</span>
-        <span class="text-xs font-bold text-on-surface">Most Imported</span>
-      </div>
-      <ul class="space-y-1.5">
-        ${(g.most_imported || []).slice(0, 4).map(([name, count]) => `
-          <li class="flex items-center justify-between">
-            <span class="text-xs font-mono text-on-surface truncate max-w-[150px]">${name}</span>
-            <span class="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full">${count} imports</span>
-          </li>`).join('')}
-      </ul>
-    </div>`;
+      const g = graphData?.metrics; if (!g) return;
+      document.getElementById('graph-insights').innerHTML = `
+    <div class="p-4 rounded-xl bg-surface border border-border"><div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-info" style="font-size:18px">hub</span><span class="text-xs font-bold">Dependency Graph</span></div>
+      <div class="grid grid-cols-2 gap-2 text-xs"><div class="text-text-secondary">Nodes</div><div class="font-mono font-bold">${g.total_nodes}</div><div class="text-text-secondary">Edges</div><div class="font-mono font-bold">${g.total_edges}</div><div class="text-text-secondary">Circular deps</div><div class="font-mono font-bold ${g.cycles_detected > 0 ? 'text-danger' : 'text-success'}">${g.cycles_detected}</div><div class="text-text-secondary">Isolated</div><div class="font-mono font-bold">${g.isolated_files?.length || 0}</div></div></div>
+    <div class="p-4 rounded-xl bg-surface border border-border"><div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-warning" style="font-size:18px">star</span><span class="text-xs font-bold">Most Imported</span></div>
+      <ul class="space-y-1.5">${(g.most_imported || []).slice(0, 4).map(([n, c]) => `<li class="flex items-center justify-between"><span class="text-xs font-mono text-text-primary truncate max-w-[150px]">${n}</span><span class="text-[10px] font-bold text-primary-light bg-primary-dim px-2 py-0.5 rounded-full">${c}</span></li>`).join('')}</ul></div>`;
     }
 
-    // ── Heatmap Table ─────────────────────────
     function renderHeatTable() {
       const sorted = [...complexityData].sort((a, b) => b.complexity - a.complexity).slice(0, 8);
       document.getElementById('heat-table').innerHTML = sorted.map(f => {
         const g = gradeStyle(f.grade);
-        return `<tr class="hover:bg-surface-container-low transition-colors">
-      <td class="px-5 py-3 font-mono text-on-surface truncate max-w-[180px]">${f.path || f.file}</td>
-      <td class="px-5 py-3 font-bold text-on-surface">${f.complexity}</td>
-      <td class="px-5 py-3"><span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${g.bg} ${g.text}">${f.grade_label}</span></td>
-      <td class="px-5 py-3 text-right font-mono text-on-surface-variant">${fmtNum(f.lines)}</td>
-    </tr>`;
+        return `<tr class="hover:bg-surface-high transition-colors cursor-pointer" onclick="selectFileByPath('${f.path || f.file}')"><td class="px-4 py-2.5 font-mono truncate max-w-[180px]">${f.path || f.file}</td><td class="px-4 py-2.5 font-bold">${f.complexity}</td><td class="px-4 py-2.5"><span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold ${g.bg} ${g.text}">${f.grade_label}</span></td><td class="px-4 py-2.5 text-right font-mono text-text-secondary">${fmtNum(f.lines)}</td></tr>`;
       }).join('');
     }
 
-    // ── Complexity Cards ──────────────────────
+    // ── Complexity Cards (horizontal bars + most complex callout) ──
     function renderComplexityCards() {
       const sortKey = document.getElementById('sort-select')?.value || 'score';
       const sorted = [...complexityData].sort((a, b) => (b[sortKey] || b.complexity) - (a[sortKey] || a.complexity));
       const max_c = Math.max(...sorted.map(f => f.complexity), 10);
+      const avg = sorted.length > 0 ? sorted.reduce((s, f) => s + f.complexity, 0) / sorted.length : 0;
+
+      // Most complex callout
+      const callout = document.getElementById('most-complex-callout');
+      if (sorted.length > 0) {
+        const worst = sorted[0];
+        const wg = gradeStyle(worst.grade);
+        callout.classList.remove('hidden');
+        callout.innerHTML = `<div class="flex items-center justify-between"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-danger" style="font-size:22px">warning</span><div><div class="text-xs font-bold text-danger mb-0.5">Most Complex File</div><div class="text-sm font-mono font-bold cursor-pointer hover:text-info transition-colors" onclick="selectFileByPath('${worst.path || worst.file}')">${worst.path || worst.file}</div></div></div><div class="text-right"><div class="text-2xl font-black text-danger">${worst.complexity}</div><span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${wg.bg} ${wg.text}">${worst.grade_label}</span></div></div>`;
+      }
 
       document.getElementById('complexity-cards').innerHTML = sorted.map(f => {
         const g = gradeStyle(f.grade);
         const pct = Math.min(100, Math.round(f.complexity / max_c * 100));
-        const gradeColor = { A: '#22c55e', B: '#22c55e', C: '#0969da', D: '#0969da', E: '#f97316', F: '#ba1a1a' };
-        const barColor = gradeColor[f.grade] || '#0969da';
-        const topFuncs = (f.top_functions || []).slice(0, 3);
+        const barColor = complexityColor(f.complexity);
+        const topFns = (f.top_functions || []).slice(0, 3);
+        const diff = f.complexity - avg;
+        const trendClass = diff > 2 ? 'trend-up' : diff < -2 ? 'trend-down' : 'trend-same';
+        const trendIcon = diff > 2 ? 'trending_up' : diff < -2 ? 'trending_down' : 'trending_flat';
 
-        return `
-    <div class="p-4 rounded-xl bg-surface-container-lowest border border-outline-variant/15 hover:border-outline-variant/35 transition-all cursor-pointer" onclick="selectFileByPath('${f.path || f.file}')">
-      <div class="flex items-start justify-between mb-3">
-        <div class="min-w-0">
-          <div class="text-xs font-mono font-semibold text-on-surface truncate">${f.path || f.file}</div>
-          <div class="text-[10px] text-on-surface-variant mt-0.5">${fmtNum(f.lines)} lines · ${f.functions || '?'} functions · <span class="font-mono">${f.lang}</span></div>
-        </div>
-        <div class="text-right ml-3 shrink-0">
-          <div class="text-xl font-black text-on-surface">${f.complexity}</div>
-          <span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${g.bg} ${g.text}">${f.grade_label}</span>
-        </div>
-      </div>
-      <div class="w-full h-1.5 bg-surface-container rounded-full overflow-hidden mb-2">
-        <div class="h-full rounded-full transition-all" style="width:${pct}%;background:${barColor}"></div>
-      </div>
-      ${topFuncs.length ? `
-      <div class="mt-2 space-y-1">
-        ${topFuncs.map(fn => `
-          <div class="flex items-center justify-between">
-            <span class="text-[10px] font-mono text-on-surface-variant truncate">${fn.name}()</span>
-            <span class="text-[10px] font-bold ml-2 ${fn.complexity > 10 ? 'text-orange-600' : 'text-on-surface-variant'}">${fn.complexity}</span>
-          </div>`).join('')}
-      </div>` : ''}
-      ${f.maintainability_index ? `<div class="mt-2 text-[10px] text-on-surface-variant">Maintainability Index: <strong class="${f.maintainability_index < 20 ? 'text-error' : f.maintainability_index < 65 ? 'text-orange-600' : 'text-green-600'}">${f.maintainability_index}</strong>/100</div>` : ''}
+        return `<div class="p-4 rounded-xl bg-surface border border-border hover:border-border-strong transition-all cursor-pointer" onclick="selectFileByPath('${f.path || f.file}')">
+      <div class="flex items-start justify-between mb-2"><div class="min-w-0"><div class="text-xs font-mono font-semibold truncate">${f.path || f.file}</div><div class="text-[10px] text-text-secondary mt-0.5">${fmtNum(f.lines)} lines · ${f.functions || '?'} fn · ${f.lang}</div></div>
+        <div class="text-right ml-3 shrink-0 flex items-center gap-2"><span class="material-symbols-outlined ${trendClass}" style="font-size:16px">${trendIcon}</span><div><div class="text-xl font-black">${f.complexity}</div><span class="inline-block px-2 py-0.5 rounded text-[10px] font-bold ${g.bg} ${g.text}">${f.grade_label}</span></div></div></div>
+      <div class="w-full h-1.5 bg-surface-highest rounded-full overflow-hidden mb-2"><div class="complexity-bar" style="width:${pct}%;background:${barColor}"></div></div>
+      ${topFns.length ? '<div class="mt-2 space-y-1">' + topFns.map(fn => `<div class="flex items-center justify-between"><span class="text-[10px] font-mono text-text-secondary truncate">${fn.name}()</span><span class="text-[10px] font-bold ${fn.complexity > 10 ? 'text-warning' : 'text-text-secondary'}">${fn.complexity}</span></div>`).join('') + '</div>' : ''}
+      ${f.maintainability_index ? `<div class="mt-2 text-[10px] text-text-secondary">MI: <strong class="${f.maintainability_index < 20 ? 'text-danger' : f.maintainability_index < 65 ? 'text-warning' : 'text-success'}">${f.maintainability_index}</strong>/100</div>` : ''}
     </div>`;
       }).join('');
     }
 
     // ── File Tree ─────────────────────────────
-    function renderFileTree(items, container = document.getElementById('file-tree'), depth = 0) {
-      container.innerHTML = depth === 0 ? '' : container.innerHTML;
+    function renderFileTree(items, container, depth = 0) {
+      if (!container) container = document.getElementById('file-tree');
+      if (depth === 0) container.innerHTML = '';
       for (const item of items) {
         if (item.type === 'folder') {
           const wrap = document.createElement('div');
           const header = document.createElement('div');
-          header.className = 'file-row flex items-center gap-2 py-1.5 rounded-lg cursor-pointer text-on-surface select-none';
+          header.className = 'file-row flex items-center gap-2 py-1.5 rounded-lg cursor-pointer select-none';
           header.style.paddingLeft = (12 + depth * 10) + 'px';
-          const folderPath = item.path || ((depth > 0 ? container.dataset.path + '/' : '') + item.name);
-          const folderUid = btoa(unescape(encodeURIComponent(folderPath))).replace(/[^a-zA-Z0-9]/g, '_');
-          header.innerHTML = `
-        <span class="material-symbols-outlined fill text-secondary transition-transform" style="font-size:15px" id="fi-${folderUid}">${item.open !== false ? 'folder_open' : 'folder'}</span>
-        <span class="text-xs font-medium">${item.name}/</span>`;
-
-          const kids = document.createElement('div');
-          kids.style.display = item.open !== false ? 'block' : 'none';
-          kids.id = 'fc-' + folderUid;
-          kids.dataset.path = folderPath;
-
-          header.onclick = () => {
-            const open = kids.style.display !== 'none';
-            kids.style.display = open ? 'none' : 'block';
-            const ico = document.getElementById('fi-' + folderUid);
-            ico.textContent = open ? 'folder' : 'folder_open';
-            item.open = !open;
-          };
-
+          const uid = btoa(unescape(encodeURIComponent(item.name + depth))).replace(/[^a-zA-Z0-9]/g, '_');
+          header.innerHTML = `<span class="material-symbols-outlined fill text-text-muted" style="font-size:14px" id="fi-${uid}">folder_open</span><span class="text-xs font-medium">${item.name}/</span>`;
+          const kids = document.createElement('div'); kids.id = 'fc-' + uid;
+          header.onclick = () => { const open = kids.style.display !== 'none'; kids.style.display = open ? 'none' : 'block'; document.getElementById('fi-' + uid).textContent = open ? 'folder' : 'folder_open'; };
           if (item.children?.length) renderFileTree(item.children, kids, depth + 1);
-          wrap.append(header, kids);
-          container.appendChild(wrap);
+          wrap.append(header, kids); container.appendChild(wrap);
         } else {
           const div = document.createElement('div');
-          div.className = 'file-row flex items-center gap-2 py-1.5 rounded-lg cursor-pointer text-on-surface';
+          div.className = 'file-row flex items-center gap-2 py-1.5 rounded-lg cursor-pointer';
           div.style.paddingLeft = (12 + depth * 10) + 'px';
           div.setAttribute('data-path', item.path || item.name);
-          div.innerHTML = `
-        <span class="${langColor(item.lang)} material-symbols-outlined" style="font-size:14px">${langIcon(item.lang)}</span>
-        <span class="text-xs truncate">${item.name}</span>`;
+          div.innerHTML = `<span class="${langColor(item.lang)} material-symbols-outlined" style="font-size:13px">${langIcon(item.lang)}</span><span class="text-xs truncate">${item.name}</span>`;
           div.onclick = () => selectFile(item, div);
           container.appendChild(div);
         }
@@ -866,22 +572,19 @@
 
     function filterTree() {
       const q = document.getElementById('file-search').value.toLowerCase();
-      document.querySelectorAll('[data-path]').forEach(el => {
-        const match = el.getAttribute('data-path').toLowerCase().includes(q);
-        el.style.display = match ? '' : 'none';
-      });
+      document.querySelectorAll('[data-path]').forEach(el => { el.style.display = el.getAttribute('data-path').toLowerCase().includes(q) ? '' : 'none'; });
     }
-
     function toggleFolders() {
-      const allKids = document.querySelectorAll('[id^="fc-"]');
-      const anyOpen = [...allKids].some(el => el.style.display !== 'none');
-      allKids.forEach(el => el.style.display = anyOpen ? 'none' : 'block');
+      const all = document.querySelectorAll('[id^="fc-"]');
+      const anyOpen = [...all].some(el => el.style.display !== 'none');
+      all.forEach(el => el.style.display = anyOpen ? 'none' : 'block');
     }
 
     function selectFile(item, el) {
       selectedFile = item;
       document.querySelectorAll('[data-path]').forEach(e => e.classList.remove('selected'));
       el.classList.add('selected');
+      loadFileViewer(item.path || item.name);
     }
 
     function selectFileByPath(path) {
@@ -889,101 +592,68 @@
       if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'nearest' }); el.click(); }
     }
 
-    // ── D3 Dependency Graph ────────────────────
-    function renderGraph() {
-      const svg = d3.select('#graph-svg');
-      svg.selectAll('*').remove();
-      if (!graphData?.nodes?.length) {
-        svg.append('text').attr('x', '50%').attr('y', '50%').attr('text-anchor', 'middle').attr('fill', '#727785').attr('font-size', '13').text('No dependency data available');
-        return;
-      }
+    // ── Sidebar Toggle ────────────────────────
+    function toggleSidebar() {
+      const sidebar = document.getElementById('sidebar');
+      const toggle = document.getElementById('sidebar-toggle');
+      sidebar.classList.toggle('collapsed');
+      toggle.classList.toggle('hidden');
+      const icon = toggle.querySelector('.material-symbols-outlined');
+      if (sidebar.classList.contains('collapsed')) { icon.textContent = 'chevron_right'; }
+      else { icon.textContent = 'chevron_left'; toggle.classList.add('hidden'); }
+    }
 
-      const area = document.getElementById('graph-area');
-      const W = area.clientWidth, H = area.clientHeight;
-      svg.attr('viewBox', `0 0 ${W} ${H}`);
+    // ── File Viewer (syntax highlighting + smell badges) ──
+    async function loadFileViewer(path) {
+      switchTab('chat', document.getElementById('chat-tab-btn'));
+      document.getElementById('viewer-filename').textContent = path;
+      document.getElementById('viewer-content').innerHTML = '<div class="flex items-center justify-center h-full text-text-secondary text-sm"><span class="material-symbols-outlined spin mr-2" style="font-size:18px">cycle</span>Loading…</div>';
 
-      const nodes = graphData.nodes.map(d => ({ ...d }));
-      const links = graphData.links.map(d => ({ ...d }));
+      try {
+        const resp = await fetch(`${API}/file-content?repo=${encodeURIComponent(repoKey)}&path=${encodeURIComponent(path)}`);
+        const data = await resp.json();
+        if (!resp.ok) { document.getElementById('viewer-content').innerHTML = `<div class="p-6 text-danger">${data.error}</div>`; return; }
 
-      // Defs: arrowhead
-      svg.append('defs').append('marker')
-        .attr('id', 'arr').attr('viewBox', '0 -4 8 8').attr('refX', 16).attr('refY', 0)
-        .attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto')
-        .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', '#c2c6d6');
+        document.getElementById('viewer-stats').textContent = `${data.lines} lines · ${data.functions} fn · complexity ${data.complexity} · ${data.lang}`;
+        const langMap = { python: 'python', javascript: 'javascript', typescript: 'typescript', java: 'java', go: 'go', rust: 'rust', ruby: 'ruby', php: 'php', html: 'xml', css: 'css', yaml: 'yaml', bash: 'bash', cpp: 'cpp', c: 'c', csharp: 'csharp' };
+        const hljsLang = langMap[data.lang] || 'plaintext';
 
-      const g = svg.append('g');
-      svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', e => g.attr('transform', e.transform)));
+        let highlighted;
+        try { highlighted = hljs.highlight(data.content, { language: hljsLang }).value; } catch (_) { highlighted = esc(data.content); }
+        const hLines = highlighted.split('\n');
 
-      const sim = d3.forceSimulation(nodes)
-        .force('link', d3.forceLink(links).id(d => d.id).distance(100).strength(0.4))
-        .force('charge', d3.forceManyBody().strength(-280))
-        .force('center', d3.forceCenter(W / 2, H / 2))
-        .force('collision', d3.forceCollide(d => d.size + 8));
+        const fileSmells = smellsData.filter(s => s.file === path || s.file === data.name);
+        const smellLines = {};
+        for (const s of fileSmells) { if (s.line) smellLines[s.line] = s; }
 
-      const link = g.append('g').selectAll('line')
-        .data(links).join('line').attr('class', 'link').attr('stroke-width', 1.5).attr('marker-end', 'url(#arr)');
-
-      const node = g.append('g').selectAll('g')
-        .data(nodes).join('g').attr('class', 'node')
-        .call(d3.drag()
-          .on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; })
-          .on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; })
-          .on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
-
-      node.append('circle')
-        .attr('r', d => d.size || 10)
-        .attr('fill', d => d.color + '25')
-        .attr('stroke', d => d.color)
-        .attr('stroke-width', d => d.is_hub ? 2.5 : 1.8)
-        .attr('stroke-dasharray', d => d.in_cycle ? '4,2' : 'none');
-
-      node.append('text').attr('y', d => (d.size || 10) + 12).attr('text-anchor', 'middle')
-        .attr('font-size', '9').text(d => d.id.length > 18 ? d.id.slice(0, 16) + '…' : d.id);
-
-      // Tooltip
-      const tip = document.getElementById('graph-tooltip');
-      node.on('mouseover', (e, d) => {
-        const gs = gradeStyle(d.complexity <= 10 ? 'B' : d.complexity <= 25 ? 'C' : d.complexity <= 50 ? 'E' : 'F');
-        tip.className = 'absolute bg-surface-container-lowest border border-outline-variant/30 rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-44';
-        tip.innerHTML = `
-      <div class="font-mono font-bold text-on-surface mb-2">${d.id}</div>
-      <div class="space-y-1 text-on-surface-variant">
-        <div>${fmtNum(d.lines)} lines · ${d.functions || '?'} functions</div>
-        <div>Complexity: <span class="${gs.text} font-bold">${d.complexity}</span></div>
-        <div>Imports: ${d.out_degree} · Imported by: ${d.in_degree}</div>
-        ${d.is_hub ? '<div class="text-orange-600 font-semibold">⚠ Hub file</div>' : ''}
-        ${d.in_cycle ? '<div class="text-red-600 font-semibold">⚠ Circular dep</div>' : ''}
-      </div>`;
-        tip.style.left = (e.layerX + 12) + 'px'; tip.style.top = (e.layerY - 10) + 'px';
-      }).on('mouseout', () => tip.className = 'hidden');
-
-      sim.on('tick', () => {
-        link.attr('x1', d => d.source.x).attr('y1', d => d.source.y)
-          .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
-        node.attr('transform', d => `translate(${d.x},${d.y})`);
-      });
-
-      document.getElementById('graph-subtitle').textContent =
-        `${graphData.nodes.length} nodes · ${graphData.links.length} edges · ${graphData.metrics?.cycles_detected || 0} circular deps`;
+        document.getElementById('viewer-content').innerHTML = `<div class="code-viewer font-mono p-0" style="overflow:auto;height:100%"><div class="p-4">${hLines.map((line, i) => {
+          const lineNum = i + 1;
+          const smell = smellLines[lineNum];
+          const badge = smell ? `<span class="smell-badge ${smell.severity}"><span class="material-symbols-outlined" style="font-size:10px">${smell.severity === 'critical' ? 'error' : 'warning'}</span>${smell.description.slice(0, 40)}</span>` : '';
+          return `<div class="line"><span class="line-num">${lineNum}</span><span class="line-content">${line || ' '}${badge}</span></div>`;
+        }).join('')}</div></div>`;
+      } catch (e) { toast('Failed to load file', 'error'); }
     }
 
     // ── Tabs ──────────────────────────────────
     function switchTab(name, btn) {
       document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
       document.querySelectorAll('.tab-content').forEach(p => { p.classList.remove('active'); p.style.display = 'none'; });
-      btn.classList.add('active');
+      if (btn) btn.classList.add('active');
       const el = document.getElementById('tab-' + name);
-      el.classList.add('active');
-      el.style.display = 'flex';
-      el.style.flex = '1';
-      el.style.overflow = name === 'graph' ? 'hidden' : 'auto';
+      if (!el) return;
+      el.classList.add('active'); el.style.display = 'flex'; el.style.flex = '1';
+      el.style.overflow = (name === 'graph' || name === 'chat') ? 'hidden' : 'auto';
       if (name === 'graph') setTimeout(renderGraph, 80);
+      if (name === 'timeline' && !timelineData) loadTimeline();
     }
 
-    // ── Chat ──────────────────────────────────
+    // ── Chat — SSE streaming + syntax highlighting + sources ──
     function initChat() {
       chatHistory = [];
-      addMsg('ai', `Hello! I've analyzed <code style="background:#d5e3fc;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11px">${repoData.meta.full_name}</code>. Found ${repoData.stats?.total_files} files, ${fmtNum(repoData.stats?.total_lines)} lines of ${repoData.meta.language}. Ask me anything about the architecture or code!`);
+      const msgs = document.getElementById('chat-messages');
+      msgs.innerHTML = '';
+      addMsg('ai', `Hello! I've analyzed <code>${repoData.meta.full_name}</code>. Found ${repoData.stats?.total_files} files, ${fmtNum(repoData.stats?.total_lines)} lines of ${repoData.meta.language}. Ask me anything!`);
     }
 
     function addMsg(role, html, isNew = false) {
@@ -993,188 +663,376 @@
       const bubble = document.createElement('div');
       bubble.className = role === 'user' ? 'chat-user p-3 text-xs' : 'chat-ai p-3 text-xs';
       bubble.innerHTML = html;
-      const ts = document.createElement('span');
-      ts.className = 'text-[9px] text-outline px-1';
-      ts.textContent = (role === 'ai' ? 'AI' : 'You') + ' · just now';
-      div.append(bubble, ts);
+      div.append(bubble);
       wrap.appendChild(div);
       wrap.scrollTop = wrap.scrollHeight;
+      bubble.querySelectorAll('pre').forEach(pre => {
+        const btn = document.createElement('button');
+        btn.className = 'code-copy-btn';
+        btn.textContent = 'Copy';
+        btn.onclick = () => { navigator.clipboard.writeText(pre.textContent).then(() => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500); }); };
+        pre.style.position = 'relative'; pre.appendChild(btn);
+      });
+      return bubble;
+    }
+
+    function addSourcesPanel(sources) {
+      if (!sources?.length) return;
+      const wrap = document.getElementById('chat-messages');
+      const panel = document.createElement('div');
+      panel.className = 'mr-4 fade-in';
+      panel.innerHTML = `<details class="sources-panel"><summary>📎 Sources used (${sources.length} chunks)</summary>${sources.map(s => `<div class="source-item" onclick="selectFileByPath('${s.path}')"><span class="material-symbols-outlined" style="font-size:12px">description</span><span class="font-mono">${s.file}</span><span class="text-text-muted ml-auto">${Math.round(s.relevance * 100)}%</span></div>`).join('')}</details>`;
+      wrap.appendChild(panel); wrap.scrollTop = wrap.scrollHeight;
     }
 
     function showTyping() {
       const wrap = document.getElementById('chat-messages');
-      const div = document.createElement('div');
-      div.id = 'typing';
-      div.className = 'flex items-center gap-2 px-1 mr-4';
-      div.innerHTML = `<div class="flex gap-1"><div class="size-1.5 bg-tertiary rounded-full b1"></div><div class="size-1.5 bg-tertiary rounded-full b2"></div><div class="size-1.5 bg-tertiary rounded-full b3"></div></div><span class="text-[10px] font-medium text-tertiary italic">Analyzing code...</span>`;
-      wrap.append(div);
-      wrap.scrollTop = wrap.scrollHeight;
+      const div = document.createElement('div'); div.id = 'typing'; div.className = 'flex items-center gap-2 px-1 mr-4';
+      div.innerHTML = `<div class="flex gap-1"><div class="w-1.5 h-1.5 bg-primary-light rounded-full b1"></div><div class="w-1.5 h-1.5 bg-primary-light rounded-full b2"></div><div class="w-1.5 h-1.5 bg-primary-light rounded-full b3"></div></div><span class="text-[10px] font-medium text-primary-light italic">Analyzing code…</span>`;
+      wrap.append(div); wrap.scrollTop = wrap.scrollHeight;
     }
-
     function hideTyping() { document.getElementById('typing')?.remove(); }
-
     function onChatKey(e) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendChat(); } }
-    function sendQuick(t) { document.getElementById('chat-input').value = t; sendChat(); }
+    function sendQuick(t) { document.getElementById('chat-input').value = t; sendChat(); switchTab('chat', document.getElementById('chat-tab-btn')); }
 
     async function sendChat() {
       const input = document.getElementById('chat-input');
-      const msg = input.value.trim();
-      if (!msg) return;
+      const msg = input.value.trim(); if (!msg) return;
       input.value = '';
       addMsg('user', esc(msg), true);
       showTyping();
+      document.getElementById('starter-questions')?.classList.add('hidden');
 
       try {
-        const resp = await fetch(`${API}/chat`, {
+        const resp = await fetch(`${API}/chat/stream`, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repo_key: repoKey, message: msg, history: chatHistory.slice(-12) })
+          body: JSON.stringify({ repo_key: repoKey, message: msg, history: chatHistory.slice(-12) }),
         });
-        const data = await resp.json();
-        hideTyping();
-        if (!resp.ok) {
-          if (resp.status === 404) {
-            addMsg('ai', '<span class="text-error">Repository context is missing on backend (likely server restart). Please re-run Analyze from the home page.</span>', true);
-          } else {
-            addMsg('ai', `<span class="text-error">${data.error || 'Error'}</span>`, true);
+
+        if (resp.ok && resp.headers.get('content-type')?.includes('text/event-stream')) {
+          hideTyping();
+          let fullReply = '';
+          const bubble = addMsg('ai', '<span class="text-text-muted">…</span>', true);
+          const reader = resp.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  if (data.token) { fullReply += data.token; bubble.innerHTML = fmtReply(fullReply); document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight; }
+                } catch (_) { }
+              }
+              if (line.startsWith('data: ') && line.includes('"file"')) {
+                try { const sources = JSON.parse(line.slice(6)); if (Array.isArray(sources)) addSourcesPanel(sources); } catch (_) { }
+              }
+            }
           }
-          return;
+          chatHistory.push({ role: 'user', content: msg }, { role: 'assistant', content: fullReply });
+          bubble.querySelectorAll('pre').forEach(pre => {
+            if (!pre.querySelector('.code-copy-btn')) {
+              const btn = document.createElement('button'); btn.className = 'code-copy-btn'; btn.textContent = 'Copy';
+              btn.onclick = () => { navigator.clipboard.writeText(pre.textContent).then(() => { btn.textContent = 'Copied!'; setTimeout(() => btn.textContent = 'Copy', 1500); }); };
+              pre.style.position = 'relative'; pre.appendChild(btn);
+            }
+          });
+        } else {
+          const data = await resp.json(); hideTyping();
+          if (!resp.ok) { toast(data.error || 'Chat error', 'error'); addMsg('ai', `<span class="text-danger">${esc(data.error || 'Error')}</span>`, true); return; }
+          chatHistory.push({ role: 'user', content: msg }, { role: 'assistant', content: data.reply });
+          addMsg('ai', fmtReply(data.reply), true);
+          if (data.sources) addSourcesPanel(data.sources);
         }
-        chatHistory.push({ role: 'user', content: msg }, { role: 'assistant', content: data.reply });
-        addMsg('ai', fmtReply(data.reply), true);
       } catch (e) {
         hideTyping();
-        addMsg('ai', '<span class="text-error">Cannot reach backend. Is python run.py running?</span>', true);
+        try {
+          const resp = await fetch(`${API}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repo_key: repoKey, message: msg, history: chatHistory.slice(-12) }) });
+          const data = await resp.json();
+          if (!resp.ok) { toast(data.error || 'Chat error', 'error'); return; }
+          chatHistory.push({ role: 'user', content: msg }, { role: 'assistant', content: data.reply });
+          addMsg('ai', fmtReply(data.reply), true);
+          if (data.sources) addSourcesPanel(data.sources);
+        } catch (err) { toast('Cannot reach backend', 'error'); }
       }
     }
 
-    // ── Explain File ──────────────────────────
+    // ── Explain File & README ──────────────────
     async function explainSelectedFile() {
-      if (!selectedFile) {
-        addMsg('ai', 'Select a file in the Explorer sidebar first, then click "Explain Selected File".', true);
-        return;
-      }
-      const fname = selectedFile.name || selectedFile.path;
-      addMsg('user', `Explain <code style="background:#d5e3fc;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:10px">${fname}</code>`, true);
+      if (!selectedFile) { toast('Select a file in the Explorer first', 'info'); return; }
+      switchTab('chat', document.getElementById('chat-tab-btn'));
+      const fname = selectedFile.path || selectedFile.name;
+      addMsg('user', `Explain <code>${fname}</code>`, true);
       showTyping();
       try {
-        const resp = await fetch(`${API}/explain-file`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repo_key: repoKey, filename: selectedFile.path || fname })
-        });
-        const data = await resp.json();
-        hideTyping();
-        if (!resp.ok) {
-          if (resp.status === 404) {
-            addMsg('ai', '<span class="text-error">Repository context is missing on backend (likely server restart). Please re-run Analyze from the home page.</span>', true);
-          } else {
-            addMsg('ai', `<span class="text-error">${data.error}</span>`, true);
-          }
-          return;
-        }
+        const resp = await fetch(`${API}/explain-file`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repo_key: repoKey, filename: fname }) });
+        const data = await resp.json(); hideTyping();
+        if (!resp.ok) { toast(data.error || 'Explain failed', 'error'); return; }
         addMsg('ai', fmtReply(data.explanation), true);
-      } catch (e) {
-        hideTyping();
-        addMsg('ai', '<span class="text-error">Backend error.</span>', true);
-      }
+      } catch (e) { hideTyping(); toast('Backend error', 'error'); }
     }
 
-    // ── README ────────────────────────────────
-    async function triggerReadme() {
-      switchTab('readme', document.getElementById('readme-tab-btn'));
-      await generateReadme();
-    }
+    async function triggerReadme() { switchTab('readme', document.getElementById('readme-tab-btn')); await generateReadme(); }
 
     async function generateReadme() {
-      const btn = document.getElementById('readme-btn');
-      btn.disabled = true;
-      btn.innerHTML = `<span class="material-symbols-outlined spin" style="font-size:14px">cycle</span> Generating...`;
-
-      document.getElementById('readme-output').innerHTML =
-        `<div class="flex items-center gap-3 p-6 text-sm text-tertiary"><span class="material-symbols-outlined spin" style="font-size:20px">cycle</span>Claude is writing your README...</div>`;
-
+      const btn = document.getElementById('readme-btn'); btn.disabled = true;
+      btn.innerHTML = `<span class="material-symbols-outlined spin" style="font-size:13px">cycle</span> Generating…`;
+      document.getElementById('readme-output').innerHTML = `<div class="flex items-center gap-3 p-6 text-sm text-primary-light"><span class="material-symbols-outlined spin" style="font-size:20px">cycle</span>AI is writing your README…</div>`;
       try {
-        const resp = await fetch(`${API}/readme`, {
-          method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ repo_key: repoKey })
-        });
+        const resp = await fetch(`${API}/readme`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repo_key: repoKey }) });
         const data = await resp.json();
-        if (!resp.ok) {
-          document.getElementById('readme-output').innerHTML = `<p class="text-error p-4">${data.error}</p>`;
-        } else {
-          readmeRaw = data.readme;
-          document.getElementById('readme-output').innerHTML = renderMd(readmeRaw);
-        }
-      } catch (e) {
-        document.getElementById('readme-output').innerHTML = `<p class="text-error p-4">Backend error.</p>`;
-      }
-
-      btn.disabled = false;
-      btn.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:14px">auto_awesome</span> Regenerate`;
+        if (!resp.ok) { toast(data.error, 'error'); document.getElementById('readme-output').innerHTML = `<p class="text-danger p-4">${esc(data.error)}</p>`; }
+        else { readmeRaw = data.readme; document.getElementById('readme-output').innerHTML = renderMd(readmeRaw); toast('README generated!', 'success'); }
+      } catch (e) { toast('Backend error', 'error'); }
+      btn.disabled = false; btn.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span> Regenerate`;
     }
 
-    function copyReadme() {
-      if (!readmeRaw) return;
-      navigator.clipboard.writeText(readmeRaw).then(() => {
-        const btn = document.querySelector('[onclick="copyReadme()"]');
-        const orig = btn.innerHTML;
-        btn.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:14px">check</span> Copied!`;
-        setTimeout(() => btn.innerHTML = orig, 2000);
+    function copyReadme() { if (!readmeRaw) return; navigator.clipboard.writeText(readmeRaw).then(() => toast('README copied!', 'success')); }
+
+    // ── D3 Dependency Graph (file-type colors, complexity sizing, cluster) ──
+    function renderGraph() {
+      const svg = d3.select('#graph-svg'); svg.selectAll('*').remove();
+      if (!graphData?.nodes?.length) { svg.append('text').attr('x', '50%').attr('y', '50%').attr('text-anchor', 'middle').attr('fill', '#6E7681').attr('font-size', '13').text('No dependency data available'); return; }
+      const area = document.getElementById('graph-area');
+      const W = area.clientWidth, H = area.clientHeight;
+      svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+      const clusterByFolder = document.getElementById('cluster-toggle')?.checked || false;
+      const nodes = graphData.nodes.map(d => ({ ...d, color: fileTypeColor(d.lang, d.id), size: Math.max(6, Math.min(28, 6 + (d.complexity || 1) * 1.2)) }));
+      const links = graphData.links.map(d => ({ ...d }));
+
+      svg.append('defs').append('marker').attr('id', 'arr').attr('viewBox', '0 -4 8 8').attr('refX', 16).attr('refY', 0).attr('markerWidth', 6).attr('markerHeight', 6).attr('orient', 'auto')
+        .append('path').attr('d', 'M0,-4L8,0L0,4').attr('fill', '#2D333B');
+
+      const g = svg.append('g');
+      svg.call(d3.zoom().scaleExtent([0.2, 3]).on('zoom', e => g.attr('transform', e.transform)));
+
+      const sim = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(links).id(d => d.id).distance(100).strength(0.4))
+        .force('charge', d3.forceManyBody().strength(-280))
+        .force('center', d3.forceCenter(W / 2, H / 2))
+        .force('collision', d3.forceCollide(d => d.size + 6));
+
+      if (clusterByFolder) {
+        const folders = {};
+        nodes.forEach(d => { const parts = (d.path || d.id).split('/'); const folder = parts.length > 1 ? parts[0] : '_root'; if (!folders[folder]) folders[folder] = { x: 0, y: 0, count: 0 }; folders[folder].count++; });
+        const folderKeys = Object.keys(folders);
+        const angleStep = (2 * Math.PI) / folderKeys.length;
+        folderKeys.forEach((f, i) => { folders[f].x = W / 2 + Math.cos(i * angleStep) * W * 0.25; folders[f].y = H / 2 + Math.sin(i * angleStep) * H * 0.25; });
+        sim.force('x', d3.forceX(d => { const parts = (d.path || d.id).split('/'); const folder = parts.length > 1 ? parts[0] : '_root'; return folders[folder]?.x || W / 2; }).strength(0.15));
+        sim.force('y', d3.forceY(d => { const parts = (d.path || d.id).split('/'); const folder = parts.length > 1 ? parts[0] : '_root'; return folders[folder]?.y || H / 2; }).strength(0.15));
+      }
+
+      const link = g.append('g').selectAll('line').data(links).join('line').attr('class', 'link').attr('stroke-width', 1.5).attr('marker-end', 'url(#arr)');
+      const node = g.append('g').selectAll('g').data(nodes).join('g').attr('class', 'node')
+        .call(d3.drag().on('start', (e, d) => { if (!e.active) sim.alphaTarget(0.3).restart(); d.fx = d.x; d.fy = d.y; }).on('drag', (e, d) => { d.fx = e.x; d.fy = e.y; }).on('end', (e, d) => { if (!e.active) sim.alphaTarget(0); d.fx = null; d.fy = null; }));
+
+      node.append('circle').attr('r', d => d.size).attr('fill', d => d.color + '30').attr('stroke', d => d.color).attr('stroke-width', d => d.is_hub ? 2.5 : 1.5).attr('stroke-dasharray', d => d.in_cycle ? '4,2' : 'none');
+      node.append('text').attr('y', d => d.size + 12).attr('text-anchor', 'middle').attr('font-size', '9').text(d => d.id.length > 18 ? d.id.slice(0, 16) + '…' : d.id);
+
+      const tip = document.getElementById('graph-tooltip');
+      node.on('mouseover', (e, d) => {
+        const grade = complexityGrade(d.complexity);
+        tip.className = 'absolute bg-surface border border-border rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-48';
+        tip.innerHTML = `<div class="font-mono font-bold mb-2">${d.id}</div><div class="space-y-1 text-text-secondary"><div>${fmtNum(d.lines)} lines · ${d.functions || '?'} fn</div><div>Complexity: <span class="font-bold" style="color:${complexityColor(d.complexity)}">${d.complexity}</span> (${grade})</div><div>In: ${d.in_degree} · Out: ${d.out_degree}</div>${d.is_hub ? '<div class="text-warning font-semibold">⚠ Hub node</div>' : ''}${d.in_cycle ? '<div class="text-danger font-semibold">⚠ Circular dep</div>' : ''}</div>`;
+        tip.style.left = (e.layerX + 12) + 'px'; tip.style.top = (e.layerY - 10) + 'px';
+      }).on('mouseout', () => tip.className = 'hidden');
+      node.on('click', (e, d) => { selectFileByPath(d.path || d.id); });
+
+      sim.on('tick', () => {
+        link.attr('x1', d => d.source.x).attr('y1', d => d.source.y).attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+        node.attr('transform', d => `translate(${d.x},${d.y})`);
       });
+      document.getElementById('graph-subtitle').textContent = `${nodes.length} nodes · ${links.length} edges · ${graphData.metrics?.cycles_detected || 0} circular deps`;
+    }
+
+    // ── Code Smells ───────────────────────────
+    async function loadSmells() {
+      try {
+        const resp = await fetch(`${API}/smells?repo=${encodeURIComponent(repoKey)}`);
+        if (!resp.ok) return;
+        const data = await resp.json();
+        smellsData = data.smells || [];
+        const critEl = document.getElementById('smell-critical-count');
+        const warnEl = document.getElementById('smell-warning-count');
+        if (critEl) critEl.textContent = `${data.critical || 0} critical`;
+        if (warnEl) warnEl.textContent = `${data.warning || 0} warnings`;
+
+        const card = document.getElementById('smell-summary-card');
+        if (card && smellsData.length > 0) {
+          card.classList.remove('hidden');
+          card.innerHTML = `<div class="p-4 rounded-xl bg-surface border border-border flex items-center justify-between"><div class="flex items-center gap-3"><span class="material-symbols-outlined text-warning" style="font-size:22px">bug_report</span><div><div class="text-xs font-bold mb-0.5">Code Smells Detected</div><div class="text-[10px] text-text-secondary">${data.critical} critical · ${data.warning} warnings</div></div></div><button onclick="switchTab('smells',document.getElementById('smells-tab-btn'))" class="px-3 py-1.5 bg-warning/10 text-warning rounded-lg text-[11px] font-bold hover:bg-warning/20 transition-all">View All →</button></div>`;
+        }
+        renderSmellsList();
+      } catch (e) { console.error('[smells]', e); }
+    }
+
+    function renderSmellsList() {
+      const container = document.getElementById('smells-list');
+      if (!smellsData.length) { container.innerHTML = '<div class="text-center py-12 text-text-secondary"><span class="material-symbols-outlined text-success" style="font-size:40px">check_circle</span><p class="mt-3 text-sm font-semibold">No code smells detected!</p><p class="text-[10px] text-text-muted mt-1">Your code looks clean.</p></div>'; return; }
+      container.innerHTML = smellsData.map(s => {
+        const icon = s.severity === 'critical' ? 'error' : 'warning';
+        const color = s.severity === 'critical' ? 'danger' : 'warning';
+        return `<div class="p-3.5 rounded-xl bg-surface border border-border hover:border-${color}/30 transition-all cursor-pointer" onclick="selectFileByPath('${s.file}')"><div class="flex items-start gap-3"><span class="material-symbols-outlined text-${color} mt-0.5" style="font-size:16px">${icon}</span><div class="flex-1 min-w-0"><div class="flex items-center gap-2 mb-1"><span class="text-[10px] font-bold uppercase tracking-wider text-${color}">${s.severity}</span><span class="text-[10px] font-mono text-text-muted">${s.type.replace(/_/g, ' ')}</span></div><div class="text-xs font-mono font-semibold truncate">${s.file}</div><div class="text-[11px] text-text-secondary mt-1">${s.description}</div></div></div></div>`;
+      }).join('');
+    }
+
+    // ── Git Timeline ──────────────────────────
+    async function loadTimeline() {
+      try {
+        const resp = await fetch(`${API}/timeline?repo=${encodeURIComponent(repoKey)}`);
+        if (!resp.ok) return;
+        timelineData = await resp.json();
+        renderTimeline();
+      } catch (e) { console.error('[timeline]', e); }
+    }
+
+    function renderTimeline() {
+      if (!timelineData) return;
+      const s = timelineData.summary;
+      const container = document.getElementById('timeline-content');
+      container.innerHTML = `
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 stats-grid">
+      <div class="p-3.5 rounded-xl bg-surface border border-border"><div class="text-xl font-black mb-0.5">${s.total_commits}</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Commits</div></div>
+      <div class="p-3.5 rounded-xl bg-surface border border-border"><div class="text-xl font-black mb-0.5">${s.total_contributors}</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Contributors</div></div>
+      <div class="p-3.5 rounded-xl bg-surface border border-border"><div class="text-xl font-black mb-0.5">${s.active_days}</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Active Days</div></div>
+      <div class="p-3.5 rounded-xl bg-surface border border-border"><div class="text-xl font-black text-primary-light mb-0.5">${s.avg_commits_per_day}</div><div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Avg/Day</div></div>
+    </div>
+    <div class="bg-surface border border-border rounded-xl p-4"><h4 class="text-xs font-bold mb-3">Commit Frequency</h4><svg id="timeline-chart" class="w-full" height="260"></svg></div>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="bg-surface border border-border rounded-xl p-4"><h4 class="text-xs font-bold mb-3">Top Contributors</h4><div class="space-y-2">${timelineData.contributors.slice(0, 6).map(c => `<div class="flex items-center justify-between"><span class="text-xs font-medium truncate max-w-[180px]">${c.name}</span><span class="text-[10px] font-mono font-bold text-primary-light bg-primary-dim px-2 py-0.5 rounded-full">${c.commits}</span></div>`).join('')}</div></div>
+      <div class="bg-surface border border-border rounded-xl p-4"><h4 class="text-xs font-bold mb-3">Most Changed Files</h4><div class="space-y-2">${timelineData.most_changed_files.slice(0, 6).map(f => `<div class="flex items-center justify-between cursor-pointer hover:text-info transition-colors" onclick="selectFileByPath('${f.file}')"><span class="text-xs font-mono truncate max-w-[180px]">${f.file}</span><span class="text-[10px] font-mono font-bold text-warning bg-warning/10 px-2 py-0.5 rounded-full">${f.changes}</span></div>`).join('')}</div></div>
+    </div>
+    <div class="bg-surface border border-border rounded-xl p-4"><h4 class="text-xs font-bold mb-3">Recent Commits</h4><div class="space-y-0">${timelineData.commits.slice(0, 20).map(c => `<div class="commit-row"><span class="commit-sha">${c.sha}</span><div class="flex-1 min-w-0"><div class="text-xs truncate">${esc(c.message)}</div><div class="text-[10px] text-text-muted mt-0.5">${c.author} · ${c.date}</div></div></div>`).join('')}</div></div>`;
+      renderTimelineChart();
+    }
+
+    function renderTimelineChart() {
+      if (!timelineData?.weekly?.length) return;
+      const svg = d3.select('#timeline-chart');
+      const svgNode = svg.node();
+      if (!svgNode) return;
+
+      const W = svgNode.clientWidth || svgNode.parentElement?.clientWidth || 400;
+      const H = 260;
+      const data = timelineData.weekly;
+      const margin = { top: 20, right: 20, bottom: 30, left: 40 };
+      const w = W - margin.left - margin.right;
+      const h = H - margin.top - margin.bottom;
+
+      svg.selectAll('*').remove();
+      svg.attr('viewBox', `0 0 ${W} ${H}`);
+
+      const g = svg.append('g').attr('transform', `translate(${margin.left},${margin.top})`);
+
+      // X and Y Scales
+      const x = d3.scalePoint()
+        .domain(data.map(d => d.week))
+        .range([0, w]);
+
+      const y = d3.scaleLinear()
+        .domain([0, d3.max(data, d => d.count) * 1.1 || 10]) // 10% padding on top
+        .range([h, 0]);
+
+      // Define the Area generator
+      const area = d3.area()
+        .x(d => x(d.week))
+        .y0(h)
+        .y1(d => y(d.count))
+        .curve(d3.curveMonotoneX); // Smooth curves
+
+      // Define the Line generator
+      const line = d3.line()
+        .x(d => x(d.week))
+        .y(d => y(d.count))
+        .curve(d3.curveMonotoneX);
+
+      // Create Gradient for the area
+      const gradient = svg.append("defs")
+        .append("linearGradient")
+        .attr("id", "area-gradient")
+        .attr("x1", "0%").attr("y1", "0%")
+        .attr("x2", "0%").attr("y2", "100%");
+
+      gradient.append("stop").attr("offset", "0%").attr("stop-color", "#6E40C9").attr("stop-opacity", 0.4);
+      gradient.append("stop").attr("offset", "100%").attr("stop-color", "#6E40C9").attr("stop-opacity", 0);
+
+      // Draw Area
+      g.append("path")
+        .datum(data)
+        .attr("fill", "url(#area-gradient)")
+        .attr("d", area);
+
+      // Draw Line
+      g.append("path")
+        .datum(data)
+        .attr("fill", "none")
+        .attr("stroke", "#8B5CF6")
+        .attr("stroke-width", 3)
+        .attr("d", line);
+
+      // Draw Data Points (Dots)
+      g.selectAll(".dot")
+        .data(data)
+        .enter().append("circle")
+        .attr("cx", d => x(d.week))
+        .attr("cy", d => y(d.count))
+        .attr("r", 4)
+        .attr("fill", "#161B22")
+        .attr("stroke", "#8B5CF6")
+        .attr("stroke-width", 2);
+
+      // Axes
+      const step = Math.max(1, Math.floor(data.length / 6));
+      g.append('g')
+        .attr('transform', `translate(0,${h})`)
+        .call(d3.axisBottom(x).tickValues(data.filter((_, i) => i % step === 0).map(d => d.week)))
+        .selectAll('text').attr('font-size', '10').attr('fill', '#8B949E');
+
+      g.append('g')
+        .call(d3.axisLeft(y).ticks(5).tickSize(-w).tickFormat(d3.format('d')))
+        .selectAll('text').attr('font-size', '10').attr('fill', '#8B949E');
+
+      // Styling axes lines
+      g.selectAll('.domain').attr('stroke', 'transparent');
+      g.selectAll('.tick line').attr('stroke', '#2D333B').attr('stroke-dasharray', '4,4');
     }
 
     // ── Helpers ───────────────────────────────
-    function fmtNum(n) {
-      if (!n) return '0';
-      return n > 999 ? (n / 1000).toFixed(1) + 'k' : String(n);
-    }
-
-    function esc(t) {
-      return t.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-    }
+    function fmtNum(n) { if (!n) return '0'; return n > 999 ? (n / 1000).toFixed(1) + 'k' : String(n); }
+    function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
     function fmtReply(t) {
-      let safe = esc(t);
-      const blocks = [];
-      safe = safe.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-        const html = `<pre style="background:#1a1d20;color:#e5e7eb;padding:0.7rem 1rem;border-radius:0.5rem;overflow-x:auto;margin:0.4rem 0;font-family:monospace;font-size:11px">${code.trim()}</pre>`;
-        blocks.push(html);
-        return `@@BLOCK_${blocks.length - 1}@@`;
+      let s = esc(t); const blocks = [];
+      s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        let highlighted = code.trim();
+        try { if (lang && hljs.getLanguage(lang)) highlighted = hljs.highlight(code.trim(), { language: lang }).value; } catch (_) { }
+        blocks.push(`<pre style="position:relative">${highlighted}</pre>`);
+        return `@@B${blocks.length - 1}@@`;
       });
-      safe = safe
-        .replace(/`([^`]+)`/g, '<code style="background:#d5e3fc;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:10px;color:#3a485b">$1</code>')
-        .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-        .replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
-      return safe.replace(/@@BLOCK_(\d+)@@/g, (_, i) => blocks[Number(i)] || '');
+      s = s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+      return s.replace(/@@B(\d+)@@/g, (_, i) => blocks[Number(i)] || '');
     }
 
     function gradeStyle(grade) {
-      const map = {
-        A: { bg: 'bg-green-100', text: 'text-green-700' },
-        B: { bg: 'bg-green-100', text: 'text-green-700' },
-        C: { bg: 'bg-secondary-container', text: 'text-on-secondary-container' },
-        D: { bg: 'bg-orange-100', text: 'text-orange-700' },
-        E: { bg: 'bg-red-100', text: 'text-red-700' },
-        F: { bg: 'bg-error-container', text: 'text-on-error-container' },
-      };
-      return map[grade] || map['C'];
+      const m = { A: { bg: 'bg-success/15', text: 'text-success' }, B: { bg: 'bg-success/15', text: 'text-success' }, C: { bg: 'bg-info/15', text: 'text-info' }, D: { bg: 'bg-warning/15', text: 'text-warning' }, E: { bg: 'bg-danger/15', text: 'text-danger' }, F: { bg: 'bg-danger/20', text: 'text-danger' } };
+      return m[grade] || m['C'];
     }
-
-    function langIcon(lang) {
-      const icons = {
-        python: 'code', javascript: 'code', typescript: 'code', java: 'coffee', go: 'code',
-        rust: 'code', ruby: 'code', php: 'code', swift: 'code', kotlin: 'code', csharp: 'code',
-        md: 'description', json: 'data_object', html: 'html', css: 'css'
-      };
-      return icons[lang] || 'insert_drive_file';
+    function complexityGrade(score) { if (score <= 5) return 'A (Low)'; if (score <= 10) return 'B (Low)'; if (score <= 15) return 'C (Medium)'; if (score <= 20) return 'D (Medium)'; if (score <= 30) return 'E (High)'; return 'F (Critical)'; }
+    function complexityColor(score) { if (score <= 5) return '#3FB950'; if (score <= 10) return '#58A6FF'; if (score <= 20) return '#F0883E'; return '#F85149'; }
+    function fileTypeColor(lang, filename) {
+      const ext = filename?.split('.').pop()?.toLowerCase() || '';
+      const map = { py: '#58A6FF', python: '#58A6FF', js: '#F0883E', jsx: '#F0883E', javascript: '#F0883E', ts: '#3FB950', tsx: '#3FB950', typescript: '#3FB950', html: '#F85149', css: '#E879A6', go: '#00ADD8', rust: '#DEA584', java: '#B07219', ruby: '#CC342D' };
+      return map[ext] || map[lang] || '#8B949E';
     }
-    function langColor(lang) {
-      const colors = {
-        python: 'text-blue-600', javascript: 'text-yellow-500', typescript: 'text-blue-500',
-        java: 'text-orange-600', go: 'text-cyan-500', rust: 'text-orange-700', ruby: 'text-red-500',
-        php: 'text-purple-500', md: 'text-on-surface-variant', json: 'text-on-surface-variant'
-      };
-      return colors[lang] || 'text-on-surface-variant';
-    }
+    function langIcon(lang) { return { python: 'code', javascript: 'code', typescript: 'code', java: 'coffee', html: 'html', css: 'css' }[lang] || 'insert_drive_file'; }
+    function langColor(lang) { return { python: 'text-info', javascript: 'text-warning', typescript: 'text-success', java: 'text-warning', go: 'text-[#00ADD8]', rust: 'text-[#DEA584]', ruby: 'text-danger' }[lang] || 'text-text-secondary'; }
 
     function renderMd(md) {
       let h = esc(md);
@@ -1183,18 +1041,36 @@
       h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>');
       h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
       h = h.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-      h = h.replace(/^---$/gm, '<hr>');
-      h = h.replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
+      h = h.replace(/^---$/gm, '<hr>').replace(/^&gt; (.+)$/gm, '<blockquote>$1</blockquote>');
       h = h.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
       h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
       h = h.replace(/\n\n(?!<)/g, '</p><p>');
-      h = `<p>${h}</p>`;
-      ['h1', 'h2', 'h3', 'pre', 'ul', 'hr', 'blockquote'].forEach(tag => {
-        h = h.replace(new RegExp(`<p>(<${tag}>)`, 'g'), '$1');
-        h = h.replace(new RegExp(`(</${tag}>)<\/p>`, 'g'), '$1');
-      });
-      return h;
+      return `<p>${h}</p>`;
     }
+
+    // ── Resizable Chat Panel ──────────────────
+    (function initResize() {
+      const handle = document.getElementById('chat-resize-handle');
+      const panel = document.getElementById('chat-panel');
+      if (!handle || !panel) return;
+      const saved = localStorage.getItem('repolens-chat-width');
+      if (saved) panel.style.width = saved + 'px';
+      let dragging = false, startX = 0, startW = 0;
+      handle.addEventListener('mousedown', (e) => {
+        e.preventDefault(); dragging = true; startX = e.clientX; startW = panel.offsetWidth;
+        handle.classList.add('dragging'); document.body.style.cursor = 'col-resize'; document.body.style.userSelect = 'none';
+      });
+      document.addEventListener('mousemove', (e) => {
+        if (!dragging) return;
+        const delta = startX - e.clientX;
+        panel.style.width = Math.min(700, Math.max(280, startW + delta)) + 'px';
+      });
+      document.addEventListener('mouseup', () => {
+        if (!dragging) return; dragging = false;
+        handle.classList.remove('dragging'); document.body.style.cursor = ''; document.body.style.userSelect = '';
+        localStorage.setItem('repolens-chat-width', panel.offsetWidth);
+      });
+    })();
   </script>
 </body>
 
