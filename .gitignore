@@ -7,11 +7,27 @@
 # ── Python ─────────────────────────────────────────────
 __pycache__/
 *.py[cod]
+*$py.class
 *.so
+*.egg
 *.egg-info/
 dist/
 build/
-*.egg
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Databases & Cache (Critical for RepoLens) ──────────
+# Prevents committing local analysis caches
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+backend/repo_store.json
+.cache/
 
 # ── AI Model Artifacts ─────────────────────────────────
 ai_model/my_repo_model/
@@ -20,17 +36,20 @@ ai_model/data/
 # ── Vector Store ───────────────────────────────────────
 chroma_db/
 
-# ── Node / JS ──────────────────────────────────────────
+# ── Node / JS (Frontend) ───────────────────────────────
 node_modules/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+.eslintcache
 
-# ── IDE ────────────────────────────────────────────────
+# ── IDE & Editors ──────────────────────────────────────
 .vscode/
 .idea/
 *.swp
 *.swo
+*.sublime-project
+*.sublime-workspace
 
 # ── OS ─────────────────────────────────────────────────
 .DS_Store
@@ -40,4 +59,3 @@ Thumbs.db
 *.log
 *.tmp
 *.temp
-.cache/
