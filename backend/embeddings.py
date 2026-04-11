@@ -14,7 +14,8 @@ import chromadb
 from chromadb.config import Settings
 
 # Sentence Transformers for local embeddings (free, no API key needed)
-from sentence_transformers import SentenceTransformer
+# NOTE: Import lazy-loaded in get_model() to avoid blocking on model download
+# from sentence_transformers import SentenceTransformer
 
 # ─────────────────────────────────────────
 # Config
@@ -34,6 +35,8 @@ def get_model():
     global _model
     if _model is None:
         print("[embeddings] Loading sentence-transformer model...")
+        # Lazy import to avoid blocking on model download
+        from sentence_transformers import SentenceTransformer
         _model = SentenceTransformer(EMBED_MODEL)
         print("[embeddings] Model loaded.")
     return _model

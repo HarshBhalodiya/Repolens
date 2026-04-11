@@ -6,136 +6,148 @@
 const API = window.location.origin + '/api';
 
 // ── State ──────────────────────────────────────────────
-let repoData = null, repoKey = '', selectedFile = null;
-let chatHistory = [], readmeRaw = '', complexityData = [], graphData = null;
-let smellsData = [], timelineData = null, currentRepoUrl = '';
-let sseStreamingChat = false;  // Track if we're streaming
+let repoData = null,
+    repoKey = '',
+    selectedFile = null;
+let chatHistory = [],
+    readmeRaw = '',
+    complexityData = [],
+    graphData = null;
+let smellsData = [],
+    timelineData = null,
+    currentRepoUrl = '';
+let sseStreamingChat = false; // Track if we're streaming
 
 // ═══════════════════════════════════════════════════════
 // HERO CANVAS — Animated D3 Force-Directed Background
 // ═══════════════════════════════════════════════════════
 (function initHeroCanvas() {
-  const canvas = document.getElementById('hero-canvas');
-  if (!canvas) return;
-  const ctx = canvas.getContext('2d');
-  let width, height, nodes = [], links = [];
-  const NODE_COUNT = 50;
-  const COLORS = ['#6E40C9', '#8B5CF6', '#58A6FF', '#3FB950', '#F0883E', '#F85149'];
+    const canvas = document.getElementById('hero-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    let width, height, nodes = [],
+        links = [];
+    const NODE_COUNT = 50;
+    const COLORS = ['#6E40C9', '#8B5CF6', '#58A6FF', '#3FB950', '#F0883E', '#F85149'];
 
-  function resize() {
-    width = canvas.parentElement.clientWidth;
-    height = canvas.parentElement.clientHeight;
-    canvas.width = width * devicePixelRatio;
-    canvas.height = height * devicePixelRatio;
-    canvas.style.width = width + 'px';
-    canvas.style.height = height + 'px';
-    ctx.scale(devicePixelRatio, devicePixelRatio);
-  }
-
-  function init() {
-    resize();
-    nodes = Array.from({ length: NODE_COUNT }, (_, i) => ({
-      x: Math.random() * width,
-      y: Math.random() * height,
-      vx: (Math.random() - 0.5) * 0.4,
-      vy: (Math.random() - 0.5) * 0.4,
-      r: 2 + Math.random() * 3,
-      color: COLORS[Math.floor(Math.random() * COLORS.length)],
-    }));
-    // Create random connections
-    links = [];
-    for (let i = 0; i < NODE_COUNT * 0.6; i++) {
-      const a = Math.floor(Math.random() * NODE_COUNT);
-      const b = Math.floor(Math.random() * NODE_COUNT);
-      if (a !== b) links.push([a, b]);
+    function resize() {
+        width = canvas.parentElement.clientWidth;
+        height = canvas.parentElement.clientHeight;
+        canvas.width = width * devicePixelRatio;
+        canvas.height = height * devicePixelRatio;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(devicePixelRatio, devicePixelRatio);
     }
-  }
 
-  function animate() {
-    ctx.clearRect(0, 0, width, height);
-    // Draw links
-    ctx.strokeStyle = 'rgba(110, 64, 201, 0.12)';
-    ctx.lineWidth = 0.5;
-    for (const [a, b] of links) {
-      const na = nodes[a], nb = nodes[b];
-      const dist = Math.hypot(na.x - nb.x, na.y - nb.y);
-      if (dist < 200) {
-        ctx.beginPath();
-        ctx.moveTo(na.x, na.y);
-        ctx.lineTo(nb.x, nb.y);
-        ctx.stroke();
-      }
+    function init() {
+        resize();
+        nodes = Array.from({ length: NODE_COUNT }, (_, i) => ({
+            x: Math.random() * width,
+            y: Math.random() * height,
+            vx: (Math.random() - 0.5) * 0.4,
+            vy: (Math.random() - 0.5) * 0.4,
+            r: 2 + Math.random() * 3,
+            color: COLORS[Math.floor(Math.random() * COLORS.length)],
+        }));
+        // Create random connections
+        links = [];
+        for (let i = 0; i < NODE_COUNT * 0.6; i++) {
+            const a = Math.floor(Math.random() * NODE_COUNT);
+            const b = Math.floor(Math.random() * NODE_COUNT);
+            if (a !== b) links.push([a, b]);
+        }
     }
-    // Draw and update nodes
-    for (const n of nodes) {
-      ctx.beginPath();
-      ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-      ctx.fillStyle = n.color;
-      ctx.globalAlpha = 0.4;
-      ctx.fill();
-      ctx.globalAlpha = 1;
-      n.x += n.vx;
-      n.y += n.vy;
-      if (n.x < 0 || n.x > width) n.vx *= -1;
-      if (n.y < 0 || n.y > height) n.vy *= -1;
-    }
-    requestAnimationFrame(animate);
-  }
 
-  init();
-  animate();
-  window.addEventListener('resize', () => { resize(); });
+    function animate() {
+        ctx.clearRect(0, 0, width, height);
+        // Draw links
+        ctx.strokeStyle = 'rgba(110, 64, 201, 0.12)';
+        ctx.lineWidth = 0.5;
+        for (const [a, b] of links) {
+            const na = nodes[a],
+                nb = nodes[b];
+            const dist = Math.hypot(na.x - nb.x, na.y - nb.y);
+            if (dist < 200) {
+                ctx.beginPath();
+                ctx.moveTo(na.x, na.y);
+                ctx.lineTo(nb.x, nb.y);
+                ctx.stroke();
+            }
+        }
+        // Draw and update nodes
+        for (const n of nodes) {
+            ctx.beginPath();
+            ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
+            ctx.fillStyle = n.color;
+            ctx.globalAlpha = 0.4;
+            ctx.fill();
+            ctx.globalAlpha = 1;
+            n.x += n.vx;
+            n.y += n.vy;
+            if (n.x < 0 || n.x > width) n.vx *= -1;
+            if (n.y < 0 || n.y > height) n.vy *= -1;
+        }
+        requestAnimationFrame(animate);
+    }
+
+    init();
+    animate();
+    window.addEventListener('resize', () => { resize(); });
 })();
 
 // ═══════════════════════════════════════════════════════
 // TOAST NOTIFICATIONS
 // ═══════════════════════════════════════════════════════
 function toast(msg, type = 'info', duration = 4000) {
-  const c = document.getElementById('toast-container');
-  const el = document.createElement('div');
-  el.className = `toast toast-${type}`;
-  const icons = { success: 'check_circle', error: 'error', info: 'info' };
-  el.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:18px">${icons[type] || 'info'}</span><span>${msg}</span>`;
-  c.appendChild(el);
-  setTimeout(() => { el.classList.add('removing'); setTimeout(() => el.remove(), 300); }, duration);
+    const c = document.getElementById('toast-container');
+    const el = document.createElement('div');
+    el.className = `toast toast-${type}`;
+    const icons = { success: 'check_circle', error: 'error', info: 'info' };
+    el.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:18px">${icons[type] || 'info'}</span><span>${msg}</span>`;
+    c.appendChild(el);
+    setTimeout(() => {
+        el.classList.add('removing');
+        setTimeout(() => el.remove(), 300);
+    }, duration);
 }
 
 // ═══════════════════════════════════════════════════════
 // VIEW ROUTER
 // ═══════════════════════════════════════════════════════
 function showView(name) {
-  document.getElementById('view-landing').classList.add('hidden');
-  document.getElementById('view-landing').style.display = '';
-  document.getElementById('view-dashboard').classList.add('hidden');
-  document.getElementById('view-dashboard').style.display = '';
-  document.getElementById('view-health').classList.add('hidden');
-  document.getElementById('view-health').style.display = '';
+    document.getElementById('view-landing').classList.add('hidden');
+    document.getElementById('view-landing').style.display = '';
+    document.getElementById('view-dashboard').classList.add('hidden');
+    document.getElementById('view-dashboard').style.display = '';
+    document.getElementById('view-health').classList.add('hidden');
+    document.getElementById('view-health').style.display = '';
 
-  const el = document.getElementById('view-' + name);
-  el.classList.remove('hidden');
-  if (name === 'dashboard') { el.style.display = 'flex'; }
-  if (name === 'health') runHealthCheck();
-  if (name === 'landing') renderHistory();
+    const el = document.getElementById('view-' + name);
+    el.classList.remove('hidden');
+    if (name === 'dashboard') { el.style.display = 'flex'; }
+    if (name === 'health') runHealthCheck();
+    if (name === 'landing') renderHistory();
 }
 
 // ═══════════════════════════════════════════════════════
 // REPO HISTORY (localStorage)
 // ═══════════════════════════════════════════════════════
 function saveToHistory(url, name) {
-  let h = JSON.parse(localStorage.getItem('repolens-history') || '[]');
-  h = h.filter(x => x.url !== url);
-  h.unshift({ url, name, ts: Date.now() });
-  if (h.length > 8) h = h.slice(0, 8);
-  localStorage.setItem('repolens-history', JSON.stringify(h));
+    let h = JSON.parse(localStorage.getItem('repolens-history') || '[]');
+    h = h.filter(x => x.url !== url);
+    h.unshift({ url, name, ts: Date.now() });
+    if (h.length > 8) h = h.slice(0, 8);
+    localStorage.setItem('repolens-history', JSON.stringify(h));
 }
 
 function renderHistory() {
-  const h = JSON.parse(localStorage.getItem('repolens-history') || '[]');
-  const sec = document.getElementById('history-section');
-  const list = document.getElementById('history-list');
-  if (!h.length) { sec.classList.add('hidden'); return; }
-  sec.classList.remove('hidden');
-  list.innerHTML = h.map(r => `
+    const h = JSON.parse(localStorage.getItem('repolens-history') || '[]');
+    const sec = document.getElementById('history-section');
+    const list = document.getElementById('history-list');
+    if (!h.length) { sec.classList.add('hidden'); return; }
+    sec.classList.remove('hidden');
+    list.innerHTML = h.map(r => `
     <button onclick="fillExample('${r.url}')" class="w-full text-left flex items-center justify-between p-3 rounded-lg bg-surface border border-border hover:border-primary/30 transition-all group">
       <div class="flex items-center gap-3"><span class="material-symbols-outlined text-primary-light" style="font-size:16px">folder</span><span class="text-sm font-mono font-medium">${r.name}</span></div>
       <span class="text-[10px] text-text-muted">${new Date(r.ts).toLocaleDateString()}</span>
@@ -148,150 +160,175 @@ function fillExample(url) { document.getElementById('repo-url').value = url; }
 // ANALYZE LOADING MODAL (overlay + light card + SSE progress)
 // ═══════════════════════════════════════════════════════
 function repoDisplayNameFromUrl(url) {
-  try {
-    const u = new URL(url);
-    const segs = u.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
-    if (segs.length >= 2) return `${segs[0]}/${segs[1]}`;
-    if (segs.length === 1) return segs[0];
-  } catch (_) {}
-  return 'Repository';
+    try {
+        const u = new URL(url);
+        const segs = u.pathname.replace(/^\/+|\/+$/g, '').split('/').filter(Boolean);
+        if (segs.length >= 2) return `${segs[0]}/${segs[1]}`;
+        if (segs.length === 1) return segs[0];
+    } catch (_) {}
+    return 'Repository';
 }
 
 function showLoadingScreen() {
-  const screen = document.getElementById('loading-screen');
-  const url = currentRepoUrl || document.getElementById('repo-url').value.trim();
-  document.getElementById('loading-repo-title').textContent = repoDisplayNameFromUrl(url);
-  document.getElementById('loading-status').textContent = 'Preparing analysis…';
-  document.getElementById('loading-bar').style.width = '0%';
-  document.getElementById('loading-pct').textContent = '0 %';
-  screen.classList.remove('hidden');
+    const screen = document.getElementById('loading-screen');
+    const url = currentRepoUrl || document.getElementById('repo-url').value.trim();
+    document.getElementById('loading-repo-title').textContent = repoDisplayNameFromUrl(url);
+    document.getElementById('loading-status').textContent = 'Preparing analysis…';
+    document.getElementById('loading-bar').style.width = '0%';
+    document.getElementById('loading-pct').textContent = '0 %';
+    screen.classList.remove('hidden');
 }
 
 function hideLoadingScreen() {
-  document.getElementById('loading-screen').classList.add('hidden');
+    document.getElementById('loading-screen').classList.add('hidden');
 }
 
 function updateLoadingStep(pct, stepLabel) {
-  const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
-  document.getElementById('loading-bar').style.width = clamped + '%';
-  document.getElementById('loading-pct').textContent = `${Math.round(clamped)} %`;
-  if (stepLabel) document.getElementById('loading-status').textContent = stepLabel;
+    const clamped = Math.max(0, Math.min(100, Number(pct) || 0));
+    document.getElementById('loading-bar').style.width = clamped + '%';
+    document.getElementById('loading-pct').textContent = `${Math.round(clamped)} %`;
+    if (stepLabel) document.getElementById('loading-status').textContent = stepLabel;
 }
 
 // ═══════════════════════════════════════════════════════
 // ANALYSIS (with SSE progress + loading screen)
 // ═══════════════════════════════════════════════════════
 async function startAnalysis(force = false) {
-  const url = document.getElementById('repo-url').value.trim();
-  if (!url) { document.getElementById('input-wrapper').classList.add('border-danger'); setTimeout(() => document.getElementById('input-wrapper').classList.remove('border-danger'), 1500); return; }
-  if (!url.includes('github.com')) { toast('Please enter a valid GitHub URL', 'error'); return; }
+    const url = document.getElementById('repo-url').value.trim();
+    if (!url) {
+        document.getElementById('input-wrapper').classList.add('border-danger');
+        setTimeout(() => document.getElementById('input-wrapper').classList.remove('border-danger'), 1500);
+        return;
+    }
+    if (!url.includes('github.com')) { toast('Please enter a valid GitHub URL', 'error'); return; }
 
-  currentRepoUrl = url;
-  const btn = document.getElementById('analyze-btn');
-  btn.disabled = true;
-  document.getElementById('btn-text').textContent = 'Analyzing…';
-  showLoadingScreen();
+    currentRepoUrl = url;
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    document.getElementById('btn-text').textContent = 'Analyzing…';
+    showLoadingScreen();
 
-  const analysisId = 'a' + Date.now();
+    const analysisId = 'a' + Date.now();
 
-  // Start SSE listener
-  let evtSource;
-  try {
-    evtSource = new EventSource(`${API}/progress/${analysisId}`);
-    evtSource.onmessage = (e) => {
-      try {
-        const d = JSON.parse(e.data);
-        if (d.pct >= 0) updateLoadingStep(d.pct, d.step);
-        if (d.pct >= 100 || d.pct < 0) evtSource.close();
-      } catch (_) {}
-    };
-    evtSource.onerror = () => evtSource.close();
-  } catch (_) {}
+    // Start SSE listener
+    let evtSource;
+    try {
+        evtSource = new EventSource(`${API}/progress/${analysisId}`);
+        evtSource.onmessage = (e) => {
+            try {
+                const d = JSON.parse(e.data);
+                if (d.pct >= 0) updateLoadingStep(d.pct, d.step);
+                if (d.pct >= 100 || d.pct < 0) evtSource.close();
+            } catch (_) {}
+        };
+        evtSource.onerror = () => evtSource.close();
+    } catch (_) {}
 
-  try {
-    const resp = await fetch(`${API}/analyze`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ repo_url: url, analysis_id: analysisId, force }),
-    });
-    if (evtSource) evtSource.close();
-    const data = await resp.json();
-    if (!resp.ok) { toast(data.error || 'Analysis failed', 'error'); resetBtn(); hideLoadingScreen(); return; }
+    try {
+        const resp = await fetch(`${API}/analyze`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ repo_url: url, analysis_id: analysisId, force }),
+        });
+        if (evtSource) evtSource.close();
+        const data = await resp.json();
+        if (!resp.ok) {
+            toast(data.error || 'Analysis failed', 'error');
+            resetBtn();
+            hideLoadingScreen();
+            return;
+        }
 
-    updateLoadingStep(100, 'Analysis complete!');
-    repoData = data;
-    repoKey = data.repo_key || data.meta?.full_name || '';
-    saveToHistory(url, repoKey);
+        updateLoadingStep(100, 'Analysis complete!');
+        repoData = data;
+        repoKey = data.repo_key || data.meta?.full_name || '';
+        saveToHistory(url, repoKey);
 
-    if (data.cached) toast('Loaded from cache — no changes detected', 'info');
+        if (data.cached) toast('Loaded from cache — no changes detected', 'info');
 
-    setTimeout(() => { resetBtn(); hideLoadingScreen(); loadDashboard(); }, 600);
-  } catch (err) {
-    if (evtSource) evtSource.close();
-    toast('Cannot connect to backend. Run: python run.py', 'error');
-    resetBtn(); hideLoadingScreen();
-  }
+        setTimeout(() => {
+            resetBtn();
+            hideLoadingScreen();
+            loadDashboard();
+        }, 600);
+    } catch (err) {
+        if (evtSource) evtSource.close();
+        toast('Cannot connect to backend. Run: python run.py', 'error');
+        resetBtn();
+        hideLoadingScreen();
+    }
 }
 
 function forceReanalyze() {
-  if (!currentRepoUrl) { toast('No repo URL to re-analyze', 'info'); return; }
-  document.getElementById('repo-url').value = currentRepoUrl;
-  showView('landing');
-  startAnalysis(true);
+    if (!currentRepoUrl) { toast('No repo URL to re-analyze', 'info'); return; }
+    document.getElementById('repo-url').value = currentRepoUrl;
+    showView('landing');
+    startAnalysis(true);
 }
 
 function resetBtn() {
-  document.getElementById('analyze-btn').disabled = false;
-  document.getElementById('btn-text').textContent = 'Analyze';
+    document.getElementById('analyze-btn').disabled = false;
+    document.getElementById('btn-text').textContent = 'Analyze';
 }
 
 // ═══════════════════════════════════════════════════════
 // LOAD DASHBOARD
 // ═══════════════════════════════════════════════════════
 async function loadDashboard() {
-  if (!repoData) return;
-  complexityData = repoData.complexity || [];
-  graphData = repoData.graph || null;
+    if (!repoData) return;
+    complexityData = repoData.complexity || [];
+    graphData = repoData.graph || null;
 
-  showView('dashboard');
-  document.querySelectorAll('.tab-content').forEach((el, i) => {
-    el.style.display = i === 0 ? 'flex' : 'none'; el.style.flex = '1'; el.style.overflow = 'hidden';
-  });
-  document.getElementById('tab-summary').style.overflow = 'auto';
+    showView('dashboard');
+    document.querySelectorAll('.tab-content').forEach((el, i) => {
+        el.style.display = i === 0 ? 'flex' : 'none';
+        el.style.flex = '1';
+        el.style.overflow = 'hidden';
+    });
+    document.getElementById('tab-summary').style.overflow = 'auto';
 
-  populateHeader(); populateSummary(); renderFileTree(repoData.file_tree || []);
-  renderHeatTable(); renderGraphInsights(); renderComplexityCards(); initChat();
+    populateHeader();
+    populateSummary();
+    renderFileTree(repoData.file_tree || []);
+    renderHeatTable();
+    renderGraphInsights();
+    renderComplexityCards();
+    initChat();
 
-  // Load smells and timeline asynchronously
-  loadSmells();
-  loadTimeline();
+    // Load smells, timeline, and insights asynchronously
+    loadSmells();
+    loadTimeline();
+    loadInsights();
 }
 
 // ═══════════════════════════════════════════════════════
 // HEADER & SUMMARY
 // ═══════════════════════════════════════════════════════
 function populateHeader() {
-  const m = repoData.meta;
-  document.getElementById('header-repo').textContent = m.full_name;
-  document.getElementById('pill-files').textContent = repoData.stats?.total_files + ' files';
-  document.getElementById('pill-lines').textContent = fmtNum(repoData.stats?.total_lines) + ' lines';
-  document.getElementById('pill-lang').textContent = m.language || '?';
-  document.title = m.full_name + ' — RepoLens';
+    const m = repoData.meta;
+    document.getElementById('header-repo').textContent = m.full_name;
+    document.getElementById('pill-files').textContent = repoData.stats?.total_files + ' files';
+    document.getElementById('pill-lines').textContent = fmtNum(repoData.stats?.total_lines) + ' lines';
+    document.getElementById('pill-lang').textContent = m.language || '?';
+    document.title = m.full_name + ' — RepoLens';
 }
 
 function populateSummary() {
-  const m = repoData.meta, s = repoData.stats;
-  document.getElementById('sum-name').textContent = m.full_name;
-  document.getElementById('sum-desc').textContent = m.description || '';
-  document.getElementById('s-files').textContent = s?.total_files ?? '–';
-  document.getElementById('s-lines').textContent = fmtNum(s?.total_lines);
-  document.getElementById('s-funcs').textContent = fmtNum(s?.total_functions);
-  document.getElementById('s-cmplx').textContent = s?.avg_complexity ?? '–';
-  document.getElementById('sum-topics').innerHTML = (m.topics || []).map(t => `<span class="px-2.5 py-0.5 bg-primary-dim text-primary-light text-[10px] font-semibold rounded-full">${t}</span>`).join('');
+    const m = repoData.meta,
+        s = repoData.stats;
+    document.getElementById('sum-name').textContent = m.full_name;
+    document.getElementById('sum-desc').textContent = m.description || '';
+    document.getElementById('s-files').textContent = s?.total_files ?? '–';
+    document.getElementById('s-lines').textContent = fmtNum(s?.total_lines);
+    document.getElementById('s-funcs').textContent = fmtNum(s?.total_functions);
+    document.getElementById('s-cmplx').textContent = s?.avg_complexity ?? '–';
+    document.getElementById('sum-topics').innerHTML = (m.topics || []).map(t => `<span class="px-2.5 py-0.5 bg-primary-dim text-primary-light text-[10px] font-semibold rounded-full">${t}</span>`).join('');
 }
 
 function renderGraphInsights() {
-  const g = graphData?.metrics; if (!g) return;
-  document.getElementById('graph-insights').innerHTML = `
+    const g = graphData?.metrics;
+    if (!g) return;
+    document.getElementById('graph-insights').innerHTML = `
     <div class="p-4 rounded-xl bg-surface border border-border"><div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-info" style="font-size:18px">hub</span><span class="text-xs font-bold">Dependency Graph</span></div>
       <div class="grid grid-cols-2 gap-2 text-xs"><div class="text-text-secondary">Nodes</div><div class="font-mono font-bold">${g.total_nodes}</div><div class="text-text-secondary">Edges</div><div class="font-mono font-bold">${g.total_edges}</div><div class="text-text-secondary">Circular deps</div><div class="font-mono font-bold ${g.cycles_detected > 0 ? 'text-danger' : 'text-success'}">${g.cycles_detected}</div><div class="text-text-secondary">Isolated</div><div class="font-mono font-bold">${g.isolated_files?.length || 0}</div></div></div>
     <div class="p-4 rounded-xl bg-surface border border-border"><div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-warning" style="font-size:18px">star</span><span class="text-xs font-bold">Most Imported</span></div>
@@ -646,7 +683,7 @@ async function sendChat() {
     // Try non-streaming endpoint as ultimate fallback
     try {
       const resp = await fetch(`${API}/chat`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repo_key: repoKey, message: msg, history: chatHistory.slice(-12) }) });
-      const data = await resp.json(); 
+      const data = await resp.json();
       if (!resp.ok) { toast(data.error || 'Chat error', 'error'); return; }
       chatHistory.push({ role: 'user', content: msg }, { role: 'assistant', content: data.reply });
       addMsg('ai', fmtReply(data.reply), true);
@@ -977,6 +1014,296 @@ function renderTimelineChart() {
   g.selectAll('.tick line').attr('stroke', '#2D333B').attr('stroke-opacity', 0.3);
 }
 
+async function loadInsights() {
+  // Add immediate loading state
+  document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
+  document.getElementById('health-status').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
+  document.getElementById('tech-debt-message').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
+  
+  try {
+    console.log('[insights] Loading for repo:', repoKey);
+    
+    if (!repoKey) {
+      console.warn('[insights] No repoKey available');
+      document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">No repo selected</div>';
+      return;
+    }
+    
+    const resp = await fetch(`${API}/insights?repo=${encodeURIComponent(repoKey)}`);
+    console.log('[insights] Response status:', resp.status);
+    
+    if (!resp.ok) { 
+      console.warn('[insights] API returned non-ok status:', resp.status);
+      const error = await resp.text();
+      console.warn('[insights] Error response:', error);
+      document.getElementById('language-legend').innerHTML = `<div class="text-[10px] text-danger">Error ${resp.status}: ${error.slice(0, 100)}</div>`;
+      return; 
+    }
+    
+    const data = await resp.json();
+    console.log('[insights] Data received:', JSON.stringify(data).slice(0, 300));
+    
+    if (!data.data) { 
+      console.warn('[insights] No data in response');
+      document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">No data</div>';
+      return;
+    }
+
+    console.log('[insights] Rendering visualizations...');
+    renderLanguageBreakdown(data.data.language_breakdown);
+    renderHealthRadar(data.data.health_radar);
+    renderTechDebtGauge(data.data.tech_debt);
+    console.log('[insights] Rendering complete!');
+  } catch (e) { 
+    console.error('[insights] Error:', e);
+    document.getElementById('language-legend').innerHTML = `<div class="text-[10px] text-danger">${e.message}</div>`;
+  }
+}
+
+function renderLanguageBreakdown(langData) {
+  if (!langData?.languages?.length) {
+    document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary py-4">No language data available</div>';
+    return;
+  }
+  
+  const svg = d3.select('#language-donut');
+  svg.selectAll('*').remove();
+  
+  const data = langData.languages;
+  const size = 200;
+  const innerRadius = size / 3;
+  const outerRadius = size / 2;
+  
+  svg.attr('viewBox', `0 0 ${size} ${size}`);
+  const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`);
+  
+  const pie = d3.pie().value(d => d.count);
+  const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius);
+  
+  const arcs = g.selectAll('path').data(pie(data)).join('path')
+    .attr('fill', d => d.data.color)
+    .attr('d', arc)
+    .attr('opacity', 0.85)
+    .attr('stroke', '#0D0D12')
+    .attr('stroke-width', 2);
+  
+  // Center text (primary language)
+  g.append('text')
+    .attr('text-anchor', 'middle')
+    .attr('dy', '0.35em')
+    .attr('font-size', '14')
+    .attr('font-weight', 'bold')
+    .attr('fill', '#E6EDF3')
+    .text(langData.primary_language);
+  
+  g.append('text')
+    .attr('text-anchor', 'middle')
+    .attr('dy', '1.5em')
+    .attr('font-size', '10')
+    .attr('fill', '#8B949E')
+    .text(`${langData.total_files} files`);
+  
+  arcs.on('mouseover', function(e, d) {
+    d3.select(this).attr('opacity', 1);
+  }).on('mouseout', function(e, d) {
+    d3.select(this).attr('opacity', 0.85);
+  });
+  
+  // Legend
+  const legend = document.getElementById('language-legend');
+  legend.innerHTML = data.map(d => `
+    <div class="flex items-center gap-2">
+      <div class="w-2 h-2 rounded-full" style="background:${d.color}"></div>
+      <span class="text-[10px] text-text-secondary flex-1">${d.language}</span>
+      <span class="text-[10px] font-mono font-bold text-text-primary">${d.percentage}%</span>
+    </div>`).join('');
+}
+
+function renderHealthRadar(healthData) {
+  if (!healthData) {
+    document.getElementById('health-status').innerHTML = '<div class="text-[10px] text-text-secondary">No data available</div>';
+    return;
+  }
+  
+  const svg = d3.select('#health-radar');
+  svg.selectAll('*').remove();
+  
+  const axes = [
+    { label: 'Security', value: healthData.security || 50 },
+    { label: 'Maintenance', value: healthData.maintenance || 50 },
+    { label: 'Documentation', value: healthData.documentation || 50 },
+    { label: 'Tests', value: healthData.tests || 50 },
+    { label: 'Community', value: healthData.community || 50 }
+  ];
+  
+  const size = 200;
+  const levels = 5;
+  const radius = size / 2 - 20;
+  
+  svg.attr('viewBox', `0 0 ${size} ${size}`);
+  const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`);
+  
+  // Draw concentric circles
+  for (let i = 1; i <= levels; i++) {
+    g.append('circle')
+      .attr('cx', 0).attr('cy', 0)
+      .attr('r', (radius / levels) * i)
+      .attr('fill', 'none')
+      .attr('stroke', '#27272A')
+      .attr('stroke-width', 0.5)
+      .attr('opacity', 0.6);
+  }
+  
+  // Draw axes
+  const angle = (2 * Math.PI) / axes.length;
+  for (let i = 0; i < axes.length; i++) {
+    const x = radius * Math.cos(angle * i - Math.PI / 2);
+    const y = radius * Math.sin(angle * i - Math.PI / 2);
+    g.append('line')
+      .attr('x1', 0).attr('y1', 0)
+      .attr('x2', x).attr('y2', y)
+      .attr('stroke', '#2D333B')
+      .attr('stroke-width', 0.5);
+    
+    // Axis labels
+    const lx = (radius + 30) * Math.cos(angle * i - Math.PI / 2);
+    const ly = (radius + 30) * Math.sin(angle * i - Math.PI / 2);
+    g.append('text')
+      .attr('x', lx).attr('y', ly)
+      .attr('text-anchor', 'middle')
+      .attr('font-size', '9')
+      .attr('font-weight', 'bold')
+      .attr('fill', '#8B949E')
+      .text(axes[i].label);
+  }
+  
+  // Plot area
+  const points = axes.map((d, i) => {
+    const r = Math.max(1, Math.min(100, d.value)) / 100 * radius;
+    const x = r * Math.cos(angle * i - Math.PI / 2);
+    const y = r * Math.sin(angle * i - Math.PI / 2);
+    return [x, y];
+  });
+  
+  g.append('polygon')
+    .attr('points', points.map(p => p.join(',')).join(' '))
+    .attr('fill', 'rgba(138, 92, 246, 0.25)')
+    .attr('stroke', '#8B5CF6')
+    .attr('stroke-width', 1.5);
+  
+  // Dots on vertices
+  g.selectAll('.vertex').data(points).join('circle')
+    .attr('cx', d => d[0]).attr('cy', d => d[1])
+    .attr('r', 2.5)
+    .attr('fill', '#8B5CF6');
+  
+  // Health status
+  const statusEl = document.getElementById('health-status');
+  const statusColor = healthData.status === 'excellent' ? '#3FB950' : 
+                       healthData.status === 'healthy' ? '#58A6FF' :
+                       healthData.status === 'fair' ? '#F0883E' : '#F85149';
+  statusEl.innerHTML = `<div class="text-xs font-bold mb-1" style="color:${statusColor}">${(healthData.status || 'unknown').toUpperCase()}</div>
+    <div class="text-[10px] text-text-secondary">Overall Health: <strong style="color:${statusColor}">${healthData.overall_health || 0}/100</strong></div>`;
+}
+
+function renderTechDebtGauge(debtData) {
+  if (!debtData) {
+    document.getElementById('tech-debt-message').innerHTML = '<div class="text-[10px] text-text-secondary">No data available</div>';
+    return;
+  }
+  
+  const svg = d3.select('#tech-debt-gauge');
+  svg.selectAll('*').remove();
+  
+  const size = 200;
+  const radius = size / 2 - 20;
+  const startAngle = Math.PI;
+  const endAngle = 2 * Math.PI;
+  const range = endAngle - startAngle;
+  
+  svg.attr('viewBox', `0 0 ${size} ${size}`);
+  const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`);
+  
+  // Background arc (gray)
+  const bgArc = d3.arc()
+    .innerRadius(radius - 15)
+    .outerRadius(radius);
+  
+  g.append('path')
+    .attr('d', bgArc({
+      startAngle: startAngle,
+      endAngle: endAngle,
+      padAngle: 0
+    }))
+    .attr('fill', '#27272A');
+  
+  // Gradient for score arc
+  const gradient = svg.append('defs').append('linearGradient')
+    .attr('id', 'scoreGradient')
+    .attr('x1', '0%').attr('y1', '0%')
+    .attr('x2', '100%').attr('y2', '0%');
+  
+  gradient.append('stop').attr('offset', '0%').attr('stop-color', '#3FB950');
+  gradient.append('stop').attr('offset', '50%').attr('stop-color', '#F0883E');
+  gradient.append('stop').attr('offset', '100%').attr('stop-color', '#F85149');
+  
+  // Score arc
+  const score = Math.max(0, Math.min(100, debtData.score || 0));
+  const scoreAngle = startAngle + (score / 100) * range;
+  const scoreArc = d3.arc()
+    .innerRadius(radius - 15)
+    .outerRadius(radius);
+  
+  g.append('path')
+    .attr('d', scoreArc({
+      startAngle: startAngle,
+      endAngle: scoreAngle,
+      padAngle: 0
+    }))
+    .attr('fill', 'url(#scoreGradient)');
+  
+  // Needle
+  const needleLength = radius - 5;
+  const needleX = needleLength * Math.cos(scoreAngle - Math.PI / 2);
+  const needleY = needleLength * Math.sin(scoreAngle - Math.PI / 2);
+  
+  g.append('line')
+    .attr('x1', 0).attr('y1', 0)
+    .attr('x2', needleX).attr('y2', needleY)
+    .attr('stroke', '#E6EDF3')
+    .attr('stroke-width', 2.5)
+    .attr('stroke-linecap', 'round');
+  
+  g.append('circle')
+    .attr('cx', 0).attr('cy', 0)
+    .attr('r', 4)
+    .attr('fill', '#E6EDF3');
+  
+  // Score text
+  g.append('text')
+    .attr('x', 0).attr('y', 15)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '24')
+    .attr('font-weight', 'bold')
+    .attr('fill', '#E6EDF3')
+    .text(score);
+  
+  g.append('text')
+    .attr('x', 0).attr('y', 35)
+    .attr('text-anchor', 'middle')
+    .attr('font-size', '10')
+    .attr('fill', '#8B949E')
+    .text('Tech Debt Score');
+  
+  // Message
+  const msgEl = document.getElementById('tech-debt-message');
+  const msgColor = debtData.color === 'green' ? '#3FB950' :
+                   debtData.color === 'yellow' ? '#F0883E' :
+                   debtData.color === 'red' ? '#F85149' : '#8B949E';
+  msgEl.innerHTML = `<div class="text-xs font-bold mb-1" style="color:${msgColor}">${(debtData.message || 'Unknown').slice(0, 40)}</div>
+    <div class="text-[10px] text-text-secondary">${(debtData.recommendation || 'No recommendation').slice(0, 100)}…</div>`;
+}
+
 // ═══════════════════════════════════════════════════════
 // HEALTH CHECK
 // ═══════════════════════════════════════════════════════
@@ -1018,11 +1345,12 @@ async function runHealthCheck() {
 function fmtNum(n) { if (!n) return '0'; return n > 999 ? (n / 1000).toFixed(1) + 'k' : String(n); }
 function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
+// FIX: Extract code blocks BEFORE escaping to prevent hljs receiving HTML entities
 function fmtReply(t) {
-  let s = esc(t); const blocks = [];
-  // Extract code blocks with syntax highlighting
-  s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-    let highlighted = code.trim();
+  const blocks = [];
+  // Step 1: Extract and highlight code blocks from raw text first
+  let s = t.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+    let highlighted = esc(code.trim()); // escape the code content itself
     try {
       if (lang && hljs.getLanguage(lang)) {
         highlighted = hljs.highlight(code.trim(), { language: lang }).value;
@@ -1031,10 +1359,13 @@ function fmtReply(t) {
     blocks.push(`<pre style="position:relative">${highlighted}</pre>`);
     return `@@B${blocks.length - 1}@@`;
   });
+  // Step 2: Now escape the remaining plain text
+  s = esc(s);
   s = s.replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
     .replace(/\n\n/g, '<br><br>')
     .replace(/\n/g, '<br>');
+  // Step 3: Re-inject the highlighted code blocks
   return s.replace(/@@B(\d+)@@/g, (_, i) => blocks[Number(i)] || '');
 }
 

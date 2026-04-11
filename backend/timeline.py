@@ -5,11 +5,13 @@ Fetches the last 100 commits via GitHub API and returns:
   - Commit frequency data (by day/week)
   - Most-changed files list
   - Contributor activity breakdown
+  - Advanced metrics: commit types, day-of-week patterns, volatility, multi-timeframe analysis
 """
 
 import os
 import re
 import requests
+import statistics
 from datetime import datetime, timedelta
 from collections import Counter, defaultdict
 from typing import Optional
@@ -78,14 +80,7 @@ def fetch_commits(repo_url: str, max_commits: int = 100) -> list[dict]:
 def build_timeline(repo_url: str) -> dict:
     """
     Build a complete timeline view for the repository.
-    Returns: {
-        commits: [...],
-        frequency: { date: count, ... },
-        weekly: [{ week: ..., count: ... }, ...],
-        contributors: [{ name, email, commits, last_active }, ...],
-        most_changed_files: [{ file, changes }, ...],
-        summary: { total_commits, active_days, most_active_day, ... }
-    }
+    Returns enriched data with commit types, frequency patterns, volatility, and multi-timeframe analysis.
     """
     raw_commits = fetch_commits(repo_url)
 
@@ -97,11 +92,18 @@ def build_timeline(repo_url: str) -> dict:
             "contributors": [],
             "most_changed_files": [],
             "summary": {"total_commits": 0},
+            "commit_types": {},
+            "day_of_week": {},
+            "frequency_buckets": {},
+            "volatility": {},
+            "timeframe_comparison": {},
         }
 
     # Parse commits into clean format
     commits = []
     daily_counts = Counter()
+    commits_with_dates = []
+    commit_types = Counter()
     contributors = defaultdict(lambda: {"commits": 0, "last_active": None})
     file_changes = Counter()
 
@@ -122,17 +124,23 @@ def build_timeline(repo_url: str) -> dict:
             dt = None
             date_key = ""
 
+        # Categorize commit type
+        commit_type = _categorize_commit_type(message)
+        commit_types[commit_type] += 1
+
         commits.append({
             "sha": sha,
             "message": message[:120],
             "author": author_name,
             "date": date_key,
             "timestamp": date_str,
+            "type": commit_type,
         })
 
         # Daily frequency
         if date_key:
             daily_counts[date_key] += 1
+            commits_with_dates.append((date_key, commit_type))
 
         # Contributors
         contributors[author_name]["commits"] += 1
@@ -195,6 +203,21 @@ def build_timeline(repo_url: str) -> dict:
         "avg_commits_per_day": round(len(commits) / max(len(daily_counts), 1), 1),
     }
 
+    # Advanced metrics
+    commit_types_breakdown = {
+        "feature": commit_types.get("feature", 0),
+        "bugfix": commit_types.get("bugfix", 0),
+        "refactor": commit_types.get("refactor", 0),
+        "docs": commit_types.get("docs", 0),
+        "chore": commit_types.get("chore", 0),
+        "other": commit_types.get("other", 0),
+    }
+
+    day_of_week_analysis = _get_day_of_week_distribution(commits_with_dates)
+    frequency_buckets = _categorize_frequency_level(daily_counts)
+    volatility = _calculate_volatility(daily_counts)
+    timeframe_comparison = _get_multi_timeframe_view(daily_counts, len(commits))
+
     return {
         "commits": commits[:100],
         "frequency": dict(daily_counts),
@@ -202,6 +225,11 @@ def build_timeline(repo_url: str) -> dict:
         "contributors": contributor_list[:20],
         "most_changed_files": most_changed,
         "summary": summary,
+        "commit_types": commit_types_breakdown,
+        "day_of_week": day_of_week_analysis,
+        "frequency_buckets": frequency_buckets,
+        "volatility": volatility,
+        "timeframe_comparison": timeframe_comparison,
     }
 
 
@@ -225,3 +253,133 @@ def _aggregate_weekly(daily_counts: Counter) -> list[dict]:
         [{"week": week, "count": count} for week, count in weekly.items()],
         key=lambda x: x["week"],
     )
+
+
+def _categorize_commit_type(message: str) -> str:
+    """Classify commit message into type: feature, bugfix, refactor, docs, chore, other."""
+    message_lower = message.lower()
+    
+    patterns = {
+        "feature": r"^(feat|feature|add|new|implement|addition)",
+        "bugfix": r"^(fix|bug|resolve|patch|hotfix)",
+        "refactor": r"^(refactor|clean|improve|optimize|simplify)",
+        "docs": r"^(doc|docs|documentation|readme|comment)",
+        "chore": r"^(chore|build|ci|deps|dependency|update|upgrade|bump)",
+    }
+    
+    for commit_type, pattern in patterns.items():
+        if re.match(pattern, message_lower):
+            return commit_type
+    
+    return "other"
+
+
+def _categorize_frequency_level(daily_counts: Counter) -> dict:
+    """Categorize days into intensity buckets: intense/normal/quiet/inactive."""
+    if not daily_counts:
+        return {"intense_days": 0, "normal_days": 0, "quiet_days": 0, "inactive_days": 0}
+    
+    counts_list = list(daily_counts.values())
+    avg = statistics.mean(counts_list) if counts_list else 0
+    
+    intense = sum(1 for c in counts_list if c >= max(10, avg * 1.5))
+    normal = sum(1 for c in counts_list if avg * 0.7 <= c < max(10, avg * 1.5))
+    quiet = sum(1 for c in counts_list if 1 <= c < avg * 0.7)
+    
+    return {
+        "intense_days": intense,
+        "normal_days": normal,
+        "quiet_days": quiet,
+        "average_daily": round(avg, 1)
+    }
+
+
+def _calculate_volatility(daily_counts: Counter) -> dict:
+    """Calculate commit frequency volatility (consistency score)."""
+    if not daily_counts or len(daily_counts) < 2:
+        return {"volatility": 0.0, "consistency": "stable", "std_dev": 0.0}
+    
+    counts_list = list(daily_counts.values())
+    mean = statistics.mean(counts_list)
+    std_dev = statistics.stdev(counts_list) if len(counts_list) > 1 else 0
+    
+    # Normalize volatility to 0-1 scale
+    volatility = min(std_dev / max(mean, 1), 1.0)
+    
+    if volatility < 0.3:
+        consistency = "very_stable"
+    elif volatility < 0.5:
+        consistency = "stable"
+    elif volatility < 0.75:
+        consistency = "moderate"
+    else:
+        consistency = "erratic"
+    
+    return {
+        "volatility": round(volatility, 2),
+        "consistency": consistency,
+        "std_dev": round(std_dev, 1)
+    }
+
+
+def _get_day_of_week_distribution(commits_with_dates: list[tuple]) -> dict:
+    """Analyze commit distribution by day of week."""
+    day_counts = Counter()
+    days_order = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+    
+    for date_str, _ in commits_with_dates:
+        try:
+            dt = datetime.strptime(date_str, "%Y-%m-%d")
+            day_name = days_order[dt.weekday()]
+            day_counts[day_name] += 1
+        except (ValueError, IndexError):
+            continue
+    
+    total = sum(day_counts.values())
+    distribution = {}
+    for day in days_order:
+        count = day_counts.get(day, 0)
+        distribution[day] = {
+            "commits": count,
+            "percentage": round((count / total * 100) if total else 0, 1)
+        }
+    
+    most_active = max(day_counts.items(), key=lambda x: x[1]) if day_counts else ("Unknown", 0)
+    least_active = min(day_counts.items(), key=lambda x: x[1]) if day_counts else ("Unknown", 0)
+    
+    return {
+        "distribution": distribution,
+        "most_active_day": most_active[0],
+        "least_active_day": least_active[0],
+        "weekend_vs_weekday": {
+            "weekday": sum(day_counts.get(d, 0) for d in days_order[:5]),
+            "weekend": sum(day_counts.get(d, 0) for d in days_order[5:])
+        }
+    }
+
+
+def _get_multi_timeframe_view(daily_counts: Counter, total_commits: int) -> dict:
+    """Generate commit stats for multiple timeframes."""
+    today = datetime.now()
+    timeframes = {
+        "last_7_days": 7,
+        "last_30_days": 30,
+        "last_90_days": 90
+    }
+    
+    results = {"all_time": {"commits": total_commits}}
+    
+    for frame_name, days in timeframes.items():
+        cutoff_date = today - timedelta(days=days)
+        cutoff_str = cutoff_date.strftime("%Y-%m-%d")
+        
+        frame_commits = sum(count for date, count in daily_counts.items() if date >= cutoff_str)
+        frame_days = len([count for date, count in daily_counts.items() if date >= cutoff_str])
+        
+        results[frame_name] = {
+            "commits": frame_commits,
+            "active_days": frame_days,
+            "avg_per_day": round(frame_commits / max(frame_days, 1), 1)
+        }
+    
+    return results

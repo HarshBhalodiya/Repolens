@@ -1,0 +1,32 @@
+/* ═══════════════════════════════════════════════════════
+   Timeline Visualizations
+   ═══════════════════════════════════════════════════════ */
+
+
+/* Timeline Chart Bar */
+
+.timeline-chart-bar {
+    fill: url(#timelineGradient);
+    opacity: 0.85;
+    stroke: rgba(139, 92, 246, 0.3);
+    stroke-width: 0.5px;
+    transition: opacity 0.15s ease;
+}
+
+.timeline-chart-bar:hover {
+    opacity: 1;
+}
+
+
+/* SVG Paths & Elements */
+
+svg text {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+}
+
+svg circle[r]:hover,
+svg path[d]:hover {
+    opacity: 1 !important;
+}

@@ -2,497 +2,546 @@
 <html lang="en">
 
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta name="description"
-    content="RepoLens Dashboard — AI-powered repository analysis with dependency graphs, complexity scoring, code smells, and RAG chat." />
-  <title>Dashboard — RepoLens</title>
-  <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
-  <script src="https://d3js.org/d3.v7.min.js"></script>
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
-    rel="stylesheet" />
-  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap"
-    rel="stylesheet" />
-  <link rel="stylesheet"
-    href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css" />
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            "base": "#0D1117", "surface": "#161B22", "surface-high": "#1C2129",
-            "surface-higher": "#21262D", "surface-highest": "#2D333B",
-            "primary": "#6E40C9", "primary-light": "#8B5CF6", "primary-dim": "rgba(110,64,201,0.15)",
-            "success": "#3FB950", "info": "#58A6FF", "warning": "#F0883E", "danger": "#F85149",
-            "text-primary": "#E6EDF3", "text-secondary": "#8B949E", "text-muted": "#6E7681",
-            "border": "rgba(110,118,129,0.25)", "border-strong": "rgba(110,118,129,0.45)"
-          }, fontFamily: { sans: ["Inter", "sans-serif"], mono: ["JetBrains Mono", "monospace"] },
-          borderRadius: { DEFAULT: "0.5rem", lg: "0.75rem", xl: "1rem" }
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="RepoLens Dashboard — AI-powered repository analysis with dependency graphs, complexity scoring, code smells, and RAG chat." />
+    <title>Dashboard — RepoLens</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark-dimmed.min.css" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        "base": "#0D1117",
+                        "surface": "#161B22",
+                        "surface-high": "#1C2129",
+                        "surface-higher": "#21262D",
+                        "surface-highest": "#2D333B",
+                        "primary": "#6E40C9",
+                        "primary-light": "#8B5CF6",
+                        "primary-dim": "rgba(110,64,201,0.15)",
+                        "success": "#3FB950",
+                        "info": "#58A6FF",
+                        "warning": "#F0883E",
+                        "danger": "#F85149",
+                        "text-primary": "#E6EDF3",
+                        "text-secondary": "#8B949E",
+                        "text-muted": "#6E7681",
+                        "border": "rgba(110,118,129,0.25)",
+                        "border-strong": "rgba(110,118,129,0.45)"
+                    },
+                    fontFamily: {
+                        sans: ["Inter", "sans-serif"],
+                        mono: ["JetBrains Mono", "monospace"]
+                    },
+                    borderRadius: {
+                        DEFAULT: "0.5rem",
+                        lg: "0.75rem",
+                        xl: "1rem"
+                    }
+                }
+            }
         }
-      }
-    }
-  </script>
-  <link rel="stylesheet" href="styles.css" />
+    </script>
+    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="insights.css" />
 </head>
 
 <body class="bg-base font-sans text-text-primary h-screen w-screen overflow-hidden flex flex-col">
 
-  <!-- Toast Container -->
-  <div id="toast-container" class="fixed top-5 right-5 z-[999] space-y-2"></div>
+    <!-- Toast Container -->
+    <div id="toast-container" class="fixed top-5 right-5 z-[999] space-y-2"></div>
 
-  <!-- HEADER -->
-  <header class="flex items-center justify-between px-4 py-2 bg-surface border-b border-border z-10 shrink-0">
-    <div class="flex items-center gap-4">
-      <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
-        <div class="w-7 h-7 ai-gradient rounded-lg flex items-center justify-center text-white">
-          <span class="material-symbols-outlined fill" style="font-size:16px">terminal</span>
+    <!-- HEADER -->
+    <header class="flex items-center justify-between px-4 py-2 bg-surface border-b border-border z-10 shrink-0">
+        <div class="flex items-center gap-4">
+            <a href="index.html" class="flex items-center gap-2 hover:opacity-80 transition-opacity">
+                <div class="w-7 h-7 ai-gradient rounded-lg flex items-center justify-center text-white">
+                    <span class="material-symbols-outlined fill" style="font-size:16px">terminal</span>
+                </div>
+                <span class="text-sm font-bold tracking-tight">RepoLens</span>
+            </a>
+            <div class="h-4 w-px bg-surface-highest"></div>
+            <div class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-high rounded-lg border border-border">
+                <span class="material-symbols-outlined fill text-primary-light" style="font-size:13px">account_tree</span>
+                <span id="header-repo" class="text-xs font-medium text-text-secondary font-mono">loading…</span>
+            </div>
+            <div class="hidden sm:flex items-center gap-2">
+                <span id="pill-files" class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? files</span>
+                <span id="pill-lines" class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? lines</span>
+                <span id="pill-lang" class="px-2 py-0.5 bg-primary-dim rounded-full text-[10px] font-bold text-primary-light">?</span>
+            </div>
         </div>
-        <span class="text-sm font-bold tracking-tight">RepoLens</span>
-      </a>
-      <div class="h-4 w-px bg-surface-highest"></div>
-      <div class="flex items-center gap-1.5 px-2.5 py-1 bg-surface-high rounded-lg border border-border">
-        <span class="material-symbols-outlined fill text-primary-light" style="font-size:13px">account_tree</span>
-        <span id="header-repo" class="text-xs font-medium text-text-secondary font-mono">loading…</span>
-      </div>
-      <div class="hidden sm:flex items-center gap-2">
-        <span id="pill-files"
-          class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? files</span>
-        <span id="pill-lines"
-          class="px-2 py-0.5 bg-surface-higher rounded-full text-[10px] font-mono text-text-secondary">? lines</span>
-        <span id="pill-lang"
-          class="px-2 py-0.5 bg-primary-dim rounded-full text-[10px] font-bold text-primary-light">?</span>
-      </div>
-    </div>
-    <div class="flex items-center gap-2">
-      <div class="flex items-center bg-surface-highest rounded-lg px-3 py-1.5 w-44">
-        <span class="material-symbols-outlined text-text-muted mr-2" style="font-size:14px">search</span>
-        <input id="file-search" type="text" placeholder="Filter files…" oninput="filterTree()"
-          class="bg-transparent border-none text-xs w-full p-0 placeholder:text-text-muted text-text-primary" />
-      </div>
-      <button id="force-reanalyze-btn" onclick="forceReanalyze()" title="Force re-analyze (clear cache)"
-        class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-warning hover:border-warning/30 text-xs font-medium transition-all">
+        <div class="flex items-center gap-2">
+            <div class="flex items-center bg-surface-highest rounded-lg px-3 py-1.5 w-44">
+                <span class="material-symbols-outlined text-text-muted mr-2" style="font-size:14px">search</span>
+                <input id="file-search" type="text" placeholder="Filter files…" oninput="filterTree()" class="bg-transparent border-none text-xs w-full p-0 placeholder:text-text-muted text-text-primary" />
+            </div>
+            <button id="force-reanalyze-btn" onclick="forceReanalyze()" title="Force re-analyze (clear cache)" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-warning hover:border-warning/30 text-xs font-medium transition-all">
         <span class="material-symbols-outlined" style="font-size:14px">refresh</span>
       </button>
-      <a href="index.html"
-        class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-text-primary text-xs font-medium transition-all">
-        <span class="material-symbols-outlined" style="font-size:14px">add</span>New
-      </a>
-    </div>
-  </header>
+            <a href="index.html" class="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-surface-higher border border-border text-text-secondary hover:text-text-primary text-xs font-medium transition-all">
+                <span class="material-symbols-outlined" style="font-size:14px">add</span>New
+            </a>
+        </div>
+    </header>
 
-  <div class="flex flex-1 overflow-hidden relative">
-    <!-- Sidebar Toggle (visible when collapsed) -->
-    <button id="sidebar-toggle" onclick="toggleSidebar()" class="sidebar-toggle hidden" title="Toggle sidebar">
+    <div class="flex flex-1 overflow-hidden relative">
+        <!-- Sidebar Toggle (visible when collapsed) -->
+        <button id="sidebar-toggle" onclick="toggleSidebar()" class="sidebar-toggle hidden" title="Toggle sidebar">
       <span class="material-symbols-outlined" style="font-size:14px">chevron_right</span>
     </button>
 
-    <!-- LEFT SIDEBAR: File Explorer -->
-    <aside id="sidebar" class="sidebar" style="width:280px">
-      <div class="flex-1 flex flex-col overflow-hidden">
-        <div class="px-3 py-2.5 flex items-center justify-between border-b border-border">
-          <div class="flex items-center gap-2">
-            <span class="material-symbols-outlined text-text-muted" style="font-size:14px">folder_open</span>
-            <span class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Explorer</span>
-          </div>
-          <div class="flex items-center gap-1">
-            <button onclick="toggleFolders()"
-              class="text-primary-light text-[10px] font-semibold hover:underline">Toggle</button>
-            <button onclick="toggleSidebar()" class="text-text-muted hover:text-text-primary ml-1"
-              title="Collapse sidebar">
+        <!-- LEFT SIDEBAR: File Explorer -->
+        <aside id="sidebar" class="sidebar" style="width:280px">
+            <div class="flex-1 flex flex-col overflow-hidden">
+                <div class="px-3 py-2.5 flex items-center justify-between border-b border-border">
+                    <div class="flex items-center gap-2">
+                        <span class="material-symbols-outlined text-text-muted" style="font-size:14px">folder_open</span>
+                        <span class="text-[10px] font-bold uppercase tracking-widest text-text-secondary">Explorer</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        <button onclick="toggleFolders()" class="text-primary-light text-[10px] font-semibold hover:underline">Toggle</button>
+                        <button onclick="toggleSidebar()" class="text-text-muted hover:text-text-primary ml-1" title="Collapse sidebar">
               <span class="material-symbols-outlined" style="font-size:14px">chevron_left</span>
             </button>
-          </div>
-        </div>
-        <nav id="file-tree" class="flex-1 overflow-y-auto px-2 py-1 scroll space-y-px"></nav>
-        <div class="p-2.5 border-t border-border space-y-1.5">
-          <button onclick="explainSelectedFile()"
-            class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-primary-dim text-primary-light rounded-lg text-xs font-bold hover:bg-primary/20 transition-all">
+                    </div>
+                </div>
+                <nav id="file-tree" class="flex-1 overflow-y-auto px-2 py-1 scroll space-y-px"></nav>
+                <div class="p-2.5 border-t border-border space-y-1.5">
+                    <button onclick="explainSelectedFile()" class="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-primary-dim text-primary-light rounded-lg text-xs font-bold hover:bg-primary/20 transition-all">
             <span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Explain File
           </button>
-          <button onclick="triggerReadme()"
-            class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-surface-higher text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all">
+                    <button onclick="triggerReadme()" class="w-full flex items-center justify-center gap-1.5 px-3 py-1.5 bg-surface-higher text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all">
             <span class="material-symbols-outlined" style="font-size:13px">description</span>README
           </button>
-        </div>
-      </div>
-    </aside>
+                </div>
+            </div>
+        </aside>
 
-    <!-- MAIN CONTENT -->
-    <main class="flex-1 bg-base flex flex-col overflow-hidden">
-      <!-- Tab Bar -->
-      <div class="flex border-b border-border px-4 shrink-0 bg-surface">
-        <button class="tab-btn active px-4 py-3 text-xs font-bold" onclick="switchTab('summary',this)"><span
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 bg-base flex flex-col overflow-hidden">
+            <!-- Tab Bar -->
+            <div class="flex border-b border-border px-4 shrink-0 bg-surface">
+                <button class="tab-btn active px-4 py-3 text-xs font-bold" onclick="switchTab('summary',this)"><span
             class="material-symbols-outlined"
             style="font-size:13px;vertical-align:middle;margin-right:4px">dashboard</span>Summary</button>
-        <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('graph',this)"><span
+                <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('graph',this)"><span
             class="material-symbols-outlined"
             style="font-size:13px;vertical-align:middle;margin-right:4px">hub</span>Graph</button>
-        <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('complexity',this)"><span
+                <button class="tab-btn px-4 py-3 text-xs font-semibold" onclick="switchTab('complexity',this)"><span
             class="material-symbols-outlined"
             style="font-size:13px;vertical-align:middle;margin-right:4px">analytics</span>Complexity</button>
-        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="chat-tab-btn" onclick="switchTab('chat',this)"><span
+                <button class="tab-btn px-4 py-3 text-xs font-semibold" id="chat-tab-btn" onclick="switchTab('chat',this)"><span
             class="material-symbols-outlined"
             style="font-size:13px;vertical-align:middle;margin-right:4px">forum</span>Chat</button>
-        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="timeline-tab-btn"
-          onclick="switchTab('timeline',this)"><span class="material-symbols-outlined"
+                <button class="tab-btn px-4 py-3 text-xs font-semibold" id="timeline-tab-btn" onclick="switchTab('timeline',this)"><span class="material-symbols-outlined"
             style="font-size:13px;vertical-align:middle;margin-right:4px">timeline</span>Timeline</button>
-        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="smells-tab-btn"
-          onclick="switchTab('smells',this)"><span class="material-symbols-outlined"
+                <button class="tab-btn px-4 py-3 text-xs font-semibold" id="smells-tab-btn" onclick="switchTab('smells',this)"><span class="material-symbols-outlined"
             style="font-size:13px;vertical-align:middle;margin-right:4px">bug_report</span>Smells</button>
-        <button class="tab-btn px-4 py-3 text-xs font-semibold" id="readme-tab-btn"
-          onclick="switchTab('readme',this)"><span class="material-symbols-outlined"
+                <button class="tab-btn px-4 py-3 text-xs font-semibold" id="readme-tab-btn" onclick="switchTab('readme',this)"><span class="material-symbols-outlined"
             style="font-size:13px;vertical-align:middle;margin-right:4px">description</span>README</button>
-      </div>
+            </div>
 
-      <!-- TAB: Summary -->
-      <div id="tab-summary" class="tab-content active overflow-y-auto p-6 scroll">
-        <div class="w-full space-y-6">
-          <div>
-            <h1 id="sum-name" class="text-2xl font-bold tracking-tight mb-1.5">Loading…</h1>
-            <p id="sum-desc" class="text-text-secondary text-sm leading-relaxed"></p>
-            <div class="flex flex-wrap gap-2 mt-3" id="sum-topics"></div>
-          </div>
-          <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 stats-grid">
-            <div class="p-4 rounded-xl bg-surface border border-border">
-              <div class="text-2xl font-black mb-0.5" id="s-files">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Files Analyzed</div>
-            </div>
-            <div class="p-4 rounded-xl bg-surface border border-border">
-              <div class="text-2xl font-black mb-0.5" id="s-lines">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Total Lines</div>
-            </div>
-            <div class="p-4 rounded-xl bg-surface border border-border">
-              <div class="text-2xl font-black mb-0.5" id="s-funcs">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Functions</div>
-            </div>
-            <div class="p-4 rounded-xl bg-surface border border-border">
-              <div class="text-2xl font-black text-primary-light mb-0.5" id="s-cmplx">–</div>
-              <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Avg Complexity</div>
-            </div>
-          </div>
-          <div id="graph-insights" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
-          <div id="smell-summary-card" class="hidden"></div>
-          <div>
-            <h3 class="text-sm font-bold mb-4">Complexity Heatmap</h3>
-            <div class="overflow-hidden rounded-xl bg-surface border border-border">
-              <table class="w-full text-left">
-                <thead class="bg-surface-high">
-                  <tr class="text-[10px] uppercase tracking-wider text-text-secondary font-bold">
-                    <th class="px-4 py-2.5">File</th>
-                    <th class="px-4 py-2.5">Score</th>
-                    <th class="px-4 py-2.5">Grade</th>
-                    <th class="px-4 py-2.5 text-right">Lines</th>
-                  </tr>
-                </thead>
-                <tbody id="heat-table" class="divide-y divide-border text-xs"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </div>
+            <!-- TAB: Summary -->
+            <div id="tab-summary" class="tab-content active overflow-y-auto p-6 scroll">
+                <div class="w-full space-y-6">
+                    <div>
+                        <h1 id="sum-name" class="text-2xl font-bold tracking-tight mb-1.5">Loading…</h1>
+                        <p id="sum-desc" class="text-text-secondary text-sm leading-relaxed"></p>
+                        <div class="flex flex-wrap gap-2 mt-3" id="sum-topics"></div>
+                    </div>
+                    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 stats-grid">
+                        <div class="p-4 rounded-xl bg-surface border border-border">
+                            <div class="text-2xl font-black mb-0.5" id="s-files">–</div>
+                            <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Files Analyzed</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-surface border border-border">
+                            <div class="text-2xl font-black mb-0.5" id="s-lines">–</div>
+                            <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Total Lines</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-surface border border-border">
+                            <div class="text-2xl font-black mb-0.5" id="s-funcs">–</div>
+                            <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Functions</div>
+                        </div>
+                        <div class="p-4 rounded-xl bg-surface border border-border">
+                            <div class="text-2xl font-black text-primary-light mb-0.5" id="s-cmplx">–</div>
+                            <div class="text-[10px] uppercase tracking-widest text-text-secondary font-semibold">Avg Complexity</div>
+                        </div>
+                    </div>
+                    <div id="graph-insights" class="grid grid-cols-1 sm:grid-cols-2 gap-3"></div>
+                    <div id="smell-summary-card" class="hidden"></div>
 
-      <!-- TAB: Graph -->
-      <div id="tab-graph" class="tab-content">
-        <div class="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
-          <div>
-            <h3 class="text-sm font-bold">Import Dependency Graph</h3>
-            <p class="text-xs text-text-secondary mt-0.5" id="graph-subtitle">Drag to rearrange · Scroll to zoom</p>
-          </div>
-          <div class="flex items-center gap-3 text-xs text-text-secondary">
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 rounded-full" style="background:#58A6FF"></div>.py
+                    <!-- INSIGHTS ROW: Language Breakdown, Health Radar, Tech Debt -->
+                    <div id="insights-row" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+                        <!-- Card 1: Language Breakdown (Donut Chart) -->
+                        <div class="p-5 rounded-xl bg-surface border border-border overflow-hidden">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="material-symbols-outlined text-primary-light" style="font-size:18px">palette</span>
+                                <h3 class="text-sm font-bold">Language Breakdown</h3>
+                            </div>
+                            <div class="flex items-center justify-center flex-1 min-h-[200px]">
+                                <svg id="language-donut" width="220" height="220" viewBox="0 0 220 220" style="display:block;margin:0 auto"></svg>
+                            </div>
+                            <div id="language-legend" class="mt-3 space-y-1.5 text-xs"></div>
+                        </div>
+
+                        <!-- Card 2: Health Radar (Spider Chart) -->
+                        <div class="p-5 rounded-xl bg-surface border border-border overflow-hidden">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="material-symbols-outlined text-success" style="font-size:18px">favorite</span>
+                                <h3 class="text-sm font-bold">Repository Health</h3>
+                            </div>
+                            <div class="flex items-center justify-center flex-1 min-h-[200px]">
+                                <svg id="health-radar" width="220" height="220" viewBox="0 0 220 220" style="display:block;margin:0 auto"></svg>
+                            </div>
+                            <div id="health-status" class="mt-3 text-center text-[11px]"></div>
+                        </div>
+
+                        <!-- Card 3: Tech Debt Gauge (Speedometer) -->
+                        <div class="p-5 rounded-xl bg-surface border border-border overflow-hidden">
+                            <div class="flex items-center gap-2 mb-4">
+                                <span class="material-symbols-outlined text-warning" style="font-size:18px">build</span>
+                                <h3 class="text-sm font-bold">Tech Debt Score</h3>
+                            </div>
+                            <div class="flex items-center justify-center flex-1 min-h-[200px]">
+                                <svg id="tech-debt-gauge" width="220" height="220" viewBox="0 0 220 220" style="display:block;margin:0 auto"></svg>
+                            </div>
+                            <div id="tech-debt-message" class="mt-3 text-center text-[11px] text-text-secondary"></div>
+                        </div>
+
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-bold mb-4">Complexity Heatmap</h3>
+                        <div class="overflow-hidden rounded-xl bg-surface border border-border">
+                            <table class="w-full text-left">
+                                <thead class="bg-surface-high">
+                                    <tr class="text-[10px] uppercase tracking-wider text-text-secondary font-bold">
+                                        <th class="px-4 py-2.5">File</th>
+                                        <th class="px-4 py-2.5">Score</th>
+                                        <th class="px-4 py-2.5">Grade</th>
+                                        <th class="px-4 py-2.5 text-right">Lines</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="heat-table" class="divide-y divide-border text-xs"></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 rounded-full" style="background:#F0883E"></div>.js
-            </div>
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 rounded-full" style="background:#3FB950"></div>.ts
-            </div>
-            <div class="flex items-center gap-1.5">
-              <div class="w-3 h-3 rounded-full" style="background:#F85149"></div>.html
-            </div>
-            <div class="h-3 w-px bg-surface-highest"></div>
-            <label class="flex items-center gap-1.5 cursor-pointer select-none">
+
+            <!-- TAB: Graph -->
+            <div id="tab-graph" class="tab-content">
+                <div class="flex items-center justify-between px-5 py-3 border-b border-border shrink-0">
+                    <div>
+                        <h3 class="text-sm font-bold">Import Dependency Graph</h3>
+                        <p class="text-xs text-text-secondary mt-0.5" id="graph-subtitle">Drag to rearrange · Scroll to zoom</p>
+                    </div>
+                    <div class="flex items-center gap-3 text-xs text-text-secondary">
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-3 h-3 rounded-full" style="background:#58A6FF"></div>.py
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-3 h-3 rounded-full" style="background:#F0883E"></div>.js
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-3 h-3 rounded-full" style="background:#3FB950"></div>.ts
+                        </div>
+                        <div class="flex items-center gap-1.5">
+                            <div class="w-3 h-3 rounded-full" style="background:#F85149"></div>.html
+                        </div>
+                        <div class="h-3 w-px bg-surface-highest"></div>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none">
               <input type="checkbox" id="cluster-toggle" onchange="renderGraph()"
                 class="w-3 h-3 rounded accent-primary" />
               <span class="text-[11px]">Cluster by folder</span>
             </label>
-            <button onclick="renderGraph()"
-              class="px-2.5 py-1 bg-surface-higher border border-border rounded-lg hover:border-primary/30 text-[11px] font-semibold transition-all">↺
+                        <button onclick="renderGraph()" class="px-2.5 py-1 bg-surface-higher border border-border rounded-lg hover:border-primary/30 text-[11px] font-semibold transition-all">↺
               Reset</button>
-          </div>
-        </div>
-        <div class="flex-1 relative overflow-hidden bg-base" id="graph-area"><svg id="graph-svg"
-            class="w-full h-full"></svg>
-          <div id="graph-tooltip"
-            class="hidden absolute bg-surface border border-border rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-48 max-w-64">
-          </div>
-        </div>
-      </div>
+                    </div>
+                </div>
+                <div class="flex-1 relative overflow-hidden bg-base" id="graph-area"><svg id="graph-svg" class="w-full h-full"></svg>
+                    <div id="graph-tooltip" class="hidden absolute bg-surface border border-border rounded-xl p-3 shadow-xl text-xs pointer-events-none z-10 min-w-48 max-w-64">
+                    </div>
+                </div>
+            </div>
 
-      <!-- TAB: Complexity -->
-      <div id="tab-complexity" class="tab-content overflow-y-auto p-6 scroll">
-        <div class="w-full">
-          <div id="most-complex-callout" class="most-complex-callout mb-6 hidden"></div>
-          <div class="flex items-center justify-between mb-5">
-            <h3 class="text-sm font-bold">Code Quality Analysis</h3>
-            <select id="sort-select" onchange="renderComplexityCards()"
-              class="text-xs bg-surface-higher border border-border rounded-lg px-2 py-1 cursor-pointer text-text-secondary">
+            <!-- TAB: Complexity -->
+            <div id="tab-complexity" class="tab-content overflow-y-auto p-6 scroll">
+                <div class="w-full">
+                    <div id="most-complex-callout" class="most-complex-callout mb-6 hidden"></div>
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-sm font-bold">Code Quality Analysis</h3>
+                        <select id="sort-select" onchange="renderComplexityCards()" class="text-xs bg-surface-higher border border-border rounded-lg px-2 py-1 cursor-pointer text-text-secondary">
               <option value="score">Complexity</option>
               <option value="lines">Lines</option>
               <option value="functions">Functions</option>
             </select>
-          </div>
-          <div id="complexity-cards" class="space-y-2.5"></div>
-        </div>
-      </div>
-
-      <!-- TAB: Chat (Code Viewer + AI Chat split) -->
-      <div id="tab-chat" class="tab-content overflow-hidden">
-        <div class="flex flex-1 overflow-hidden h-full">
-          <!-- Left: Code Viewer -->
-          <div class="flex-1 flex flex-col border-r border-border min-w-0">
-            <div class="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-surface">
-              <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined text-primary-light" style="font-size:15px">code</span>
-                <span id="viewer-filename" class="text-xs font-mono font-bold truncate">Select a file from the
-                  explorer</span>
-              </div>
-              <div id="viewer-stats" class="text-[10px] text-text-muted shrink-0"></div>
-            </div>
-            <div id="viewer-content" class="flex-1 overflow-auto p-0 scroll">
-              <div class="flex flex-col items-center justify-center h-full text-text-secondary text-sm gap-3">
-                <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">code</span>
-                <p>Click a file in the Explorer to view its code</p>
-                <p class="text-[10px] text-text-muted">The AI chat can reference the selected file</p>
-              </div>
-            </div>
-          </div>
-          <!-- Resize Handle -->
-          <div id="chat-resize-handle" class="chat-resize-handle" title="Drag to resize"></div>
-          <!-- Right: Chat Panel -->
-          <div id="chat-panel" class="flex flex-col shrink-0 bg-surface"
-            style="width:384px;min-width:280px;max-width:700px">
-            <div class="px-3 py-2 border-b border-border flex items-center justify-between shrink-0">
-              <div class="flex items-center gap-2">
-                <span class="material-symbols-outlined fill text-primary-light"
-                  style="font-size:15px">auto_awesome</span>
-                <span class="text-xs font-bold">AI Chat</span>
-              </div>
-              <div class="flex items-center gap-1.5">
-                <div id="engine-dot" class="w-1.5 h-1.5 rounded-full bg-success pulse-dot"></div>
-                <span id="engine-label"
-                  class="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Online</span>
-              </div>
-            </div>
-            <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-3 scroll"></div>
-            <div class="p-3 border-t border-border shrink-0">
-              <div id="starter-questions" class="flex flex-wrap gap-1.5 mb-2.5">
-                <button onclick="sendQuick('What does this repo do?')"
-                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">What
-                  does it do?</button>
-                <button onclick="sendQuick('Which file is most complex?')"
-                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Most
-                  complex?</button>
-                <button onclick="sendQuick('What are the main entry points?')"
-                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Entry
-                  points?</button>
-                <button onclick="sendQuick('Are there any code smells?')"
-                  class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Code
-                  smells?</button>
-              </div>
-              <div class="relative flex items-end gap-2">
-                <div
-                  class="flex-1 bg-surface-high rounded-xl overflow-hidden border border-border focus-within:border-primary/40 transition-all">
-                  <textarea id="chat-input" rows="1" placeholder="Ask about this repo…"
-                    class="w-full bg-transparent border-none text-xs p-3 resize-none max-h-28 text-text-primary placeholder:text-text-muted"
-                    onkeydown="onChatKey(event)"></textarea>
+                    </div>
+                    <div id="complexity-cards" class="space-y-2.5"></div>
                 </div>
-                <button onclick="sendChat()"
-                  class="w-9 h-9 flex items-center justify-center rounded-xl ai-gradient text-white shadow-lg hover:shadow-primary/30 shrink-0"><span
-                    class="material-symbols-outlined" style="font-size:16px">send</span></button>
-              </div>
-              <p class="text-[9px] text-center text-text-muted mt-2">Powered by Ollama / Claude · RAG via ChromaDB</p>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- TAB: Timeline -->
-      <div id="tab-timeline" class="tab-content overflow-y-auto p-6 scroll">
-        <div class="w-full">
-          <div class="flex items-center justify-between mb-5">
-            <h3 class="text-sm font-bold">Git Timeline</h3>
-            <button onclick="sendQuick('What changed in the last 30 days?')"
-              class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-dim text-primary-light rounded-lg text-[11px] font-semibold hover:bg-primary/20 transition-all">
+            <!-- TAB: Chat (Code Viewer + AI Chat split) -->
+            <div id="tab-chat" class="tab-content overflow-hidden">
+                <div class="flex flex-1 overflow-hidden h-full">
+                    <!-- Left: Code Viewer -->
+                    <div class="flex-1 flex flex-col border-r border-border min-w-0">
+                        <div class="flex items-center justify-between px-4 py-2 border-b border-border shrink-0 bg-surface">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined text-primary-light" style="font-size:15px">code</span>
+                                <span id="viewer-filename" class="text-xs font-mono font-bold truncate">Select a file from the
+                  explorer</span>
+                            </div>
+                            <div id="viewer-stats" class="text-[10px] text-text-muted shrink-0"></div>
+                        </div>
+                        <div id="viewer-content" class="flex-1 overflow-auto p-0 scroll">
+                            <div class="flex flex-col items-center justify-center h-full text-text-secondary text-sm gap-3">
+                                <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">code</span>
+                                <p>Click a file in the Explorer to view its code</p>
+                                <p class="text-[10px] text-text-muted">The AI chat can reference the selected file</p>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Resize Handle -->
+                    <div id="chat-resize-handle" class="chat-resize-handle" title="Drag to resize"></div>
+                    <!-- Right: Chat Panel -->
+                    <div id="chat-panel" class="flex flex-col shrink-0 bg-surface" style="width:384px;min-width:280px;max-width:700px">
+                        <div class="px-3 py-2 border-b border-border flex items-center justify-between shrink-0">
+                            <div class="flex items-center gap-2">
+                                <span class="material-symbols-outlined fill text-primary-light" style="font-size:15px">auto_awesome</span>
+                                <span class="text-xs font-bold">AI Chat</span>
+                            </div>
+                            <div class="flex items-center gap-1.5">
+                                <div id="engine-dot" class="w-1.5 h-1.5 rounded-full bg-success pulse-dot"></div>
+                                <span id="engine-label" class="text-[9px] font-bold text-text-secondary uppercase tracking-wider">Online</span>
+                            </div>
+                        </div>
+                        <div id="chat-messages" class="flex-1 overflow-y-auto p-3 space-y-3 scroll"></div>
+                        <div class="p-3 border-t border-border shrink-0">
+                            <div id="starter-questions" class="flex flex-wrap gap-1.5 mb-2.5">
+                                <button onclick="sendQuick('What does this repo do?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">What
+                  does it do?</button>
+                                <button onclick="sendQuick('Which file is most complex?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Most
+                  complex?</button>
+                                <button onclick="sendQuick('What are the main entry points?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Entry
+                  points?</button>
+                                <button onclick="sendQuick('Are there any code smells?')" class="px-2.5 py-1 bg-surface-higher border border-border rounded-full text-[10px] font-medium text-text-secondary hover:text-primary-light hover:border-primary/30 transition-all">Code
+                  smells?</button>
+                            </div>
+                            <div class="relative flex items-end gap-2">
+                                <div class="flex-1 bg-surface-high rounded-xl overflow-hidden border border-border focus-within:border-primary/40 transition-all">
+                                    <textarea id="chat-input" rows="1" placeholder="Ask about this repo…" class="w-full bg-transparent border-none text-xs p-3 resize-none max-h-28 text-text-primary placeholder:text-text-muted" onkeydown="onChatKey(event)"></textarea>
+                                </div>
+                                <button onclick="sendChat()" class="w-9 h-9 flex items-center justify-center rounded-xl ai-gradient text-white shadow-lg hover:shadow-primary/30 shrink-0"><span
+                    class="material-symbols-outlined" style="font-size:16px">send</span></button>
+                            </div>
+                            <p class="text-[9px] text-center text-text-muted mt-2">Powered by Ollama / Claude · RAG via ChromaDB</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- TAB: Timeline -->
+            <div id="tab-timeline" class="tab-content overflow-y-auto p-6 scroll">
+                <div class="w-full">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-sm font-bold">Git Timeline</h3>
+                        <button onclick="sendQuick('What changed in the last 30 days?')" class="flex items-center gap-1.5 px-3 py-1.5 bg-primary-dim text-primary-light rounded-lg text-[11px] font-semibold hover:bg-primary/20 transition-all">
               <span class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Ask AI
             </button>
-          </div>
-          <div id="timeline-content" class="space-y-6">
-            <div class="text-center py-12 text-text-secondary">
-              <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">timeline</span>
-              <p class="mt-3 text-sm">Loading timeline data…</p>
+                    </div>
+                    <div id="timeline-content" class="space-y-6">
+                        <div class="text-center py-12 text-text-secondary">
+                            <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">timeline</span>
+                            <p class="mt-3 text-sm">Loading timeline data…</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- TAB: Smells -->
-      <div id="tab-smells" class="tab-content overflow-y-auto p-6 scroll">
-        <div class="w-full">
-          <div class="flex items-center justify-between mb-5">
-            <h3 class="text-sm font-bold">Code Smells</h3>
-            <div class="flex items-center gap-3">
-              <span id="smell-critical-count" class="text-xs font-bold text-danger">0 critical</span>
-              <span id="smell-warning-count" class="text-xs font-bold text-warning">0 warnings</span>
+            <!-- TAB: Smells -->
+            <div id="tab-smells" class="tab-content overflow-y-auto p-6 scroll">
+                <div class="w-full">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-sm font-bold">Code Smells</h3>
+                        <div class="flex items-center gap-3">
+                            <span id="smell-critical-count" class="text-xs font-bold text-danger">0 critical</span>
+                            <span id="smell-warning-count" class="text-xs font-bold text-warning">0 warnings</span>
+                        </div>
+                    </div>
+                    <div id="smells-list" class="space-y-2">
+                        <div class="text-center py-12 text-text-secondary">
+                            <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">bug_report</span>
+                            <p class="mt-3 text-sm">Loading code smell analysis…</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div id="smells-list" class="space-y-2">
-            <div class="text-center py-12 text-text-secondary">
-              <span class="material-symbols-outlined" style="font-size:40px;opacity:.3">bug_report</span>
-              <p class="mt-3 text-sm">Loading code smell analysis…</p>
-            </div>
-          </div>
-        </div>
-      </div>
 
-      <!-- TAB: README -->
-      <div id="tab-readme" class="tab-content overflow-y-auto p-6 scroll">
-        <div class="w-full">
-          <div class="flex items-center justify-between mb-5">
-            <h3 class="text-sm font-bold">Auto-Generated README</h3>
-            <div class="flex gap-2">
-              <button onclick="generateReadme()" id="readme-btn"
-                class="flex items-center gap-1.5 px-3.5 py-2 ai-gradient text-white rounded-lg text-xs font-bold hover:opacity-90"><span
+            <!-- TAB: README -->
+            <div id="tab-readme" class="tab-content overflow-y-auto p-6 scroll">
+                <div class="w-full">
+                    <div class="flex items-center justify-between mb-5">
+                        <h3 class="text-sm font-bold">Auto-Generated README</h3>
+                        <div class="flex gap-2">
+                            <button onclick="generateReadme()" id="readme-btn" class="flex items-center gap-1.5 px-3.5 py-2 ai-gradient text-white rounded-lg text-xs font-bold hover:opacity-90"><span
                   class="material-symbols-outlined fill" style="font-size:13px">auto_awesome</span>Generate with
                 AI</button>
-              <button onclick="copyReadme()"
-                class="flex items-center gap-1.5 px-3 py-2 bg-surface-higher border border-border text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all"><span
+                            <button onclick="copyReadme()" class="flex items-center gap-1.5 px-3 py-2 bg-surface-higher border border-border text-text-secondary rounded-lg text-xs font-semibold hover:text-text-primary transition-all"><span
                   class="material-symbols-outlined" style="font-size:13px">content_copy</span>Copy</button>
+                        </div>
+                    </div>
+                    <div id="readme-output" class="readme bg-surface rounded-xl p-6 border border-border min-h-64">
+                        <div class="flex flex-col items-center justify-center h-40 gap-3 text-center"><span class="material-symbols-outlined text-text-muted" style="font-size:40px;opacity:.3">description</span>
+                            <p class="text-sm text-text-secondary">Click "Generate with AI" to create a README</p>
+                        </div>
+                    </div>
+                </div>
             </div>
-          </div>
-          <div id="readme-output" class="readme bg-surface rounded-xl p-6 border border-border min-h-64">
-            <div class="flex flex-col items-center justify-center h-40 gap-3 text-center"><span
-                class="material-symbols-outlined text-text-muted" style="font-size:40px;opacity:.3">description</span>
-              <p class="text-sm text-text-secondary">Click "Generate with AI" to create a README</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
+        </main>
+    </div>
 
-  <script>
-    const API = window.location.origin + '/api';
+    <script>
+        const API = window.location.origin + '/api';
 
-    // ── State ──────────────────────────────────
-    let repoData = null, repoKey = '', selectedFile = null;
-    let chatHistory = [], readmeRaw = '', complexityData = [], graphData = null;
-    let smellsData = [], timelineData = null, currentRepoUrl = '';
+        // ── State ──────────────────────────────────
+        let repoData = null,
+            repoKey = '',
+            selectedFile = null;
+        let chatHistory = [],
+            readmeRaw = '',
+            complexityData = [],
+            graphData = null;
+        let smellsData = [],
+            timelineData = null,
+            currentRepoUrl = '';
 
-    // ── Toast ──────────────────────────────────
-    function toast(msg, type = 'info', duration = 4000) {
-      const c = document.getElementById('toast-container');
-      const el = document.createElement('div');
-      el.className = `toast toast-${type}`;
-      const icons = { success: 'check_circle', error: 'error', info: 'info' };
-      el.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:18px">${icons[type] || 'info'}</span><span>${msg}</span>`;
-      c.appendChild(el);
-      setTimeout(() => { el.classList.add('removing'); setTimeout(() => el.remove(), 300); }, duration);
-    }
-
-    // ── Init ──────────────────────────────────
-    window.onload = async function () {
-      const raw = sessionStorage.getItem('repoData');
-      const repoKeyOnly = sessionStorage.getItem('repoKey');
-
-      if (!raw && !repoKeyOnly) {
-        window.location.href = 'index.html';
-        return;
-      }
-
-      if (raw) {
-        repoData = JSON.parse(raw);
-        if (repoData?.repo_key) sessionStorage.setItem('repoKey', repoData.repo_key);
-      } else {
-        const resp = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKeyOnly)}`);
-        if (!resp.ok) { window.location.href = 'index.html'; return; }
-        repoData = await resp.json();
-      }
-
-      repoKey = repoData.repo_key || repoData.meta?.full_name || repoKeyOnly || '';
-
-      // Validate backend still has this repository
-      try {
-        const verify = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKey)}`);
-        if (verify.ok) {
-          repoData = await verify.json();
-        } else if (verify.status === 404) {
-          sessionStorage.removeItem('repoData');
-          addMsg('ai', '<span class="text-danger">Backend restarted. Please go back and run Analyze again.</span>', true);
-          return;
+        // ── Toast ──────────────────────────────────
+        function toast(msg, type = 'info', duration = 4000) {
+            const c = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            el.className = `toast toast-${type}`;
+            const icons = {
+                success: 'check_circle',
+                error: 'error',
+                info: 'info'
+            };
+            el.innerHTML = `<span class="material-symbols-outlined fill" style="font-size:18px">${icons[type] || 'info'}</span><span>${msg}</span>`;
+            c.appendChild(el);
+            setTimeout(() => {
+                el.classList.add('removing');
+                setTimeout(() => el.remove(), 300);
+            }, duration);
         }
-      } catch (e) { /* keep existing data */ }
 
-      complexityData = repoData.complexity || [];
-      graphData = repoData.graph || null;
-      currentRepoUrl = repoData.meta?.url || `https://github.com/${repoKey}`;
+        // ── Init ──────────────────────────────────
+        window.onload = async function() {
+            const raw = sessionStorage.getItem('repoData');
+            const repoKeyOnly = sessionStorage.getItem('repoKey');
 
-      // Tab panel display fix
-      document.querySelectorAll('.tab-content').forEach((el, i) => {
-        el.style.display = i === 0 ? 'flex' : 'none';
-        el.style.flex = '1';
-        el.style.overflow = 'hidden';
-      });
-      document.getElementById('tab-summary').style.overflow = 'auto';
+            if (!raw && !repoKeyOnly) {
+                window.location.href = 'index.html';
+                return;
+            }
 
-      populateHeader();
-      populateSummary();
-      renderFileTree(repoData.file_tree || []);
-      renderHeatTable();
-      renderGraphInsights();
-      renderComplexityCards();
-      initChat();
+            if (raw) {
+                repoData = JSON.parse(raw);
+                if (repoData?.repo_key) sessionStorage.setItem('repoKey', repoData.repo_key);
+            } else {
+                const resp = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKeyOnly)}`);
+                if (!resp.ok) {
+                    window.location.href = 'index.html';
+                    return;
+                }
+                repoData = await resp.json();
+            }
 
-      // Load smells and timeline async
-      loadSmells();
-      loadTimeline();
-    };
+            repoKey = repoData.repo_key || repoData.meta?.full_name || repoKeyOnly || '';
 
-    // ── Force Re-analyze ──────────────────────
-    function forceReanalyze() {
-      if (!currentRepoUrl) { toast('No repo URL', 'info'); return; }
-      sessionStorage.setItem('forceReanalyze', currentRepoUrl);
-      window.location.href = 'index.html';
-    }
+            // Validate backend still has this repository
+            try {
+                const verify = await fetch(`${API}/repo?repo=${encodeURIComponent(repoKey)}`);
+                if (verify.ok) {
+                    repoData = await verify.json();
+                } else if (verify.status === 404) {
+                    sessionStorage.removeItem('repoData');
+                    addMsg('ai', '<span class="text-danger">Backend restarted. Please go back and run Analyze again.</span>', true);
+                    return;
+                }
+            } catch (e) { /* keep existing data */ }
 
-    // ── Header ────────────────────────────────
-    function populateHeader() {
-      const m = repoData.meta;
-      document.getElementById('header-repo').textContent = m.full_name;
-      document.getElementById('pill-files').textContent = repoData.stats?.total_files + ' files';
-      document.getElementById('pill-lines').textContent = fmtNum(repoData.stats?.total_lines) + ' lines';
-      document.getElementById('pill-lang').textContent = m.language || '?';
-      document.title = m.full_name + ' — RepoLens';
-    }
+            complexityData = repoData.complexity || [];
+            graphData = repoData.graph || null;
+            currentRepoUrl = repoData.meta?.url || `https://github.com/${repoKey}`;
 
-    // ── Summary ───────────────────────────────
-    function populateSummary() {
-      const m = repoData.meta, s = repoData.stats;
-      document.getElementById('sum-name').textContent = m.full_name;
-      document.getElementById('sum-desc').textContent = m.description || '';
-      document.getElementById('s-files').textContent = s?.total_files ?? '–';
-      document.getElementById('s-lines').textContent = fmtNum(s?.total_lines);
-      document.getElementById('s-funcs').textContent = fmtNum(s?.total_functions);
-      document.getElementById('s-cmplx').textContent = s?.avg_complexity ?? '–';
-      document.getElementById('sum-topics').innerHTML = (m.topics || []).map(t => `<span class="px-2.5 py-0.5 bg-primary-dim text-primary-light text-[10px] font-semibold rounded-full">${t}</span>`).join('');
-    }
+            // Tab panel display fix - hide all non-active tabs, keep first visible
+            document.querySelectorAll('.tab-content').forEach((el) => {
+                const isActive = el.classList.contains('active');
+                el.style.display = isActive ? 'flex' : 'none';
+                el.style.flex = '1';
+                el.style.overflow = 'hidden';
+            });
+            document.getElementById('tab-summary').style.overflow = 'auto';
 
-    function renderGraphInsights() {
-      const g = graphData?.metrics; if (!g) return;
-      document.getElementById('graph-insights').innerHTML = `
+            populateHeader();
+            populateSummary();
+            renderFileTree(repoData.file_tree || []);
+            renderHeatTable();
+            renderGraphInsights();
+            renderComplexityCards();
+            initChat();
+
+            // Load smells, timeline, and insights async
+            loadSmells();
+            loadTimeline();
+            loadInsights();
+        };
+
+        // ── Force Re-analyze ──────────────────────
+        function forceReanalyze() {
+            if (!currentRepoUrl) {
+                toast('No repo URL', 'info');
+                return;
+            }
+            sessionStorage.setItem('forceReanalyze', currentRepoUrl);
+            window.location.href = 'index.html';
+        }
+
+        // ── Header ────────────────────────────────
+        function populateHeader() {
+            const m = repoData.meta;
+            document.getElementById('header-repo').textContent = m.full_name;
+            document.getElementById('pill-files').textContent = repoData.stats?.total_files + ' files';
+            document.getElementById('pill-lines').textContent = fmtNum(repoData.stats?.total_lines) + ' lines';
+            document.getElementById('pill-lang').textContent = m.language || '?';
+            document.title = m.full_name + ' — RepoLens';
+        }
+
+        // ── Summary ───────────────────────────────
+        function populateSummary() {
+            const m = repoData.meta,
+                s = repoData.stats;
+            document.getElementById('sum-name').textContent = m.full_name;
+            document.getElementById('sum-desc').textContent = m.description || '';
+            document.getElementById('s-files').textContent = s?.total_files ?? '–';
+            document.getElementById('s-lines').textContent = fmtNum(s?.total_lines);
+            document.getElementById('s-funcs').textContent = fmtNum(s?.total_functions);
+            document.getElementById('s-cmplx').textContent = s?.avg_complexity ?? '–';
+            document.getElementById('sum-topics').innerHTML = (m.topics || []).map(t => `<span class="px-2.5 py-0.5 bg-primary-dim text-primary-light text-[10px] font-semibold rounded-full">${t}</span>`).join('');
+        }
+
+        function renderGraphInsights() {
+            const g = graphData?.metrics;
+            if (!g) return;
+            document.getElementById('graph-insights').innerHTML = `
     <div class="p-4 rounded-xl bg-surface border border-border"><div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-info" style="font-size:18px">hub</span><span class="text-xs font-bold">Dependency Graph</span></div>
       <div class="grid grid-cols-2 gap-2 text-xs"><div class="text-text-secondary">Nodes</div><div class="font-mono font-bold">${g.total_nodes}</div><div class="text-text-secondary">Edges</div><div class="font-mono font-bold">${g.total_edges}</div><div class="text-text-secondary">Circular deps</div><div class="font-mono font-bold ${g.cycles_detected > 0 ? 'text-danger' : 'text-success'}">${g.cycles_detected}</div><div class="text-text-secondary">Isolated</div><div class="font-mono font-bold">${g.isolated_files?.length || 0}</div></div></div>
     <div class="p-4 rounded-xl bg-surface border border-border"><div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-warning" style="font-size:18px">star</span><span class="text-xs font-bold">Most Imported</span></div>
@@ -597,10 +646,13 @@
       const sidebar = document.getElementById('sidebar');
       const toggle = document.getElementById('sidebar-toggle');
       sidebar.classList.toggle('collapsed');
-      toggle.classList.toggle('hidden');
-      const icon = toggle.querySelector('.material-symbols-outlined');
-      if (sidebar.classList.contains('collapsed')) { icon.textContent = 'chevron_right'; }
-      else { icon.textContent = 'chevron_left'; toggle.classList.add('hidden'); }
+      if (sidebar.classList.contains('collapsed')) {
+        toggle.classList.remove('hidden');
+        const icon = toggle.querySelector('.material-symbols-outlined');
+        icon.textContent = 'chevron_right';
+      } else {
+        toggle.classList.add('hidden');
+      }
     }
 
     // ── File Viewer (syntax highlighting + smell badges) ──
@@ -728,10 +780,8 @@
                 try {
                   const data = JSON.parse(line.slice(6));
                   if (data.token) { fullReply += data.token; bubble.innerHTML = fmtReply(fullReply); document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight; }
+                  else if (Array.isArray(data)) { addSourcesPanel(data); }
                 } catch (_) { }
-              }
-              if (line.startsWith('data: ') && line.includes('"file"')) {
-                try { const sources = JSON.parse(line.slice(6)); if (Array.isArray(sources)) addSourcesPanel(sources); } catch (_) { }
               }
             }
           }
@@ -1009,14 +1059,18 @@
     function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
 
     function fmtReply(t) {
-      let s = esc(t); const blocks = [];
-      s = s.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
-        let highlighted = code.trim();
+      const blocks = [];
+      // Step 1: Extract and highlight code blocks from RAW text BEFORE escaping
+      let s = t.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, lang, code) => {
+        let highlighted = esc(code.trim());
         try { if (lang && hljs.getLanguage(lang)) highlighted = hljs.highlight(code.trim(), { language: lang }).value; } catch (_) { }
         blocks.push(`<pre style="position:relative">${highlighted}</pre>`);
         return `@@B${blocks.length - 1}@@`;
       });
+      // Step 2: Now escape the remaining plain text
+      s = esc(s);
       s = s.replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>');
+      // Step 3: Re-inject the highlighted code blocks
       return s.replace(/@@B(\d+)@@/g, (_, i) => blocks[Number(i)] || '');
     }
 
@@ -1035,8 +1089,14 @@
     function langColor(lang) { return { python: 'text-info', javascript: 'text-warning', typescript: 'text-success', java: 'text-warning', go: 'text-[#00ADD8]', rust: 'text-[#DEA584]', ruby: 'text-danger' }[lang] || 'text-text-secondary'; }
 
     function renderMd(md) {
-      let h = esc(md);
-      h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, code) => `<pre><code>${code.trimEnd()}</code></pre>`);
+      // Step 1: Extract code blocks BEFORE escaping to prevent double-escaping
+      const codeBlocks = [];
+      let h = md.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, code) => {
+        codeBlocks.push(`<pre><code>${esc(code.trimEnd())}</code></pre>`);
+        return `@@CB${codeBlocks.length - 1}@@`;
+      });
+      // Step 2: Escape the remaining text
+      h = esc(h);
       h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
       h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>');
       h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
@@ -1045,7 +1105,97 @@
       h = h.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
       h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
       h = h.replace(/\n\n(?!<)/g, '</p><p>');
+      // Step 3: Re-inject the code blocks
+      h = h.replace(/@@CB(\d+)@@/g, (_, i) => codeBlocks[Number(i)] || '');
       return `<p>${h}</p>`;
+    }
+
+
+
+    // ── Insights (Language Breakdown, Health Radar, Tech Debt) ──
+    async function loadInsights() {
+      document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
+      document.getElementById('health-status').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
+      document.getElementById('tech-debt-message').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
+      try {
+        if (!repoKey) { document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">No repo selected</div>'; return; }
+        const resp = await fetch(`${API}/insights?repo=${encodeURIComponent(repoKey)}`);
+        if (!resp.ok) { const err = await resp.text(); document.getElementById('language-legend').innerHTML = `<div class="text-[10px] text-danger">Error ${resp.status}</div>`; return; }
+        const data = await resp.json();
+        if (!data.data) { document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">No data</div>'; return; }
+        renderLanguageBreakdown(data.data.language_breakdown);
+        renderHealthRadar(data.data.health_radar);
+        renderTechDebtGauge(data.data.tech_debt);
+      } catch (e) { console.error('[insights]', e); document.getElementById('language-legend').innerHTML = `<div class="text-[10px] text-danger">${e.message}</div>`; }
+    }
+
+    function renderLanguageBreakdown(langData) {
+      if (!langData?.languages?.length) { document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary py-4">No language data available</div>'; return; }
+      const svg = d3.select('#language-donut'); svg.selectAll('*').remove();
+      const data = langData.languages;
+      const size = 220, innerRadius = size / 3 - 10, outerRadius = size / 2 - 20;
+      svg.attr('viewBox', `0 0 ${size} ${size}`);
+      const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`);
+      const pie = d3.pie().value(d => d.count);
+      const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius);
+      const arcs = g.selectAll('path').data(pie(data)).join('path')
+        .attr('fill', d => d.data.color).attr('d', arc).attr('opacity', 0.85).attr('stroke', '#0D1117').attr('stroke-width', 2);
+      g.append('text').attr('text-anchor', 'middle').attr('dy', '0.35em').attr('font-size', '14').attr('font-weight', 'bold').attr('fill', '#E6EDF3').text(langData.primary_language);
+      g.append('text').attr('text-anchor', 'middle').attr('dy', '1.5em').attr('font-size', '10').attr('fill', '#8B949E').text(`${langData.total_files} files`);
+      arcs.on('mouseover', function() { d3.select(this).attr('opacity', 1); }).on('mouseout', function() { d3.select(this).attr('opacity', 0.85); });
+      document.getElementById('language-legend').innerHTML = data.map(d => `<div class="flex items-center gap-2"><div class="w-2 h-2 rounded-full" style="background:${d.color}"></div><span class="text-[10px] text-text-secondary flex-1">${d.language}</span><span class="text-[10px] font-mono font-bold text-text-primary">${d.percentage}%</span></div>`).join('');
+    }
+
+    function renderHealthRadar(healthData) {
+      if (!healthData) { document.getElementById('health-status').innerHTML = '<div class="text-[10px] text-text-secondary">No data available</div>'; return; }
+      const svg = d3.select('#health-radar'); svg.selectAll('*').remove();
+      const axes = [
+        { label: 'Security', value: healthData.security || 50 },
+        { label: 'Maintenance', value: healthData.maintenance || 50 },
+        { label: 'Documentation', value: healthData.documentation || 50 },
+        { label: 'Tests', value: healthData.tests || 50 },
+        { label: 'Community', value: healthData.community || 50 }
+      ];
+      const size = 220, levels = 5, radius = size / 2 - 30;
+      svg.attr('viewBox', `0 0 ${size} ${size}`);
+      const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`);
+      for (let i = 1; i <= levels; i++) g.append('circle').attr('cx', 0).attr('cy', 0).attr('r', (radius / levels) * i).attr('fill', 'none').attr('stroke', '#27272A').attr('stroke-width', 0.5).attr('opacity', 0.6);
+      const angle = (2 * Math.PI) / axes.length;
+      for (let i = 0; i < axes.length; i++) {
+        const x = radius * Math.cos(angle * i - Math.PI / 2), y = radius * Math.sin(angle * i - Math.PI / 2);
+        g.append('line').attr('x1', 0).attr('y1', 0).attr('x2', x).attr('y2', y).attr('stroke', '#2D333B').attr('stroke-width', 0.5);
+        g.append('text').attr('x', (radius + 25) * Math.cos(angle * i - Math.PI / 2)).attr('y', (radius + 25) * Math.sin(angle * i - Math.PI / 2)).attr('text-anchor', 'middle').attr('font-size', '9').attr('font-weight', 'bold').attr('fill', '#8B949E').text(axes[i].label);
+      }
+      const points = axes.map((d, i) => { const r = Math.max(1, Math.min(100, d.value)) / 100 * radius; return [r * Math.cos(angle * i - Math.PI / 2), r * Math.sin(angle * i - Math.PI / 2)]; });
+      g.append('polygon').attr('points', points.map(p => p.join(',')).join(' ')).attr('fill', 'rgba(138,92,246,0.25)').attr('stroke', '#8B5CF6').attr('stroke-width', 1.5);
+      g.selectAll('.vertex').data(points).join('circle').attr('cx', d => d[0]).attr('cy', d => d[1]).attr('r', 2.5).attr('fill', '#8B5CF6');
+      const statusColor = healthData.status === 'excellent' ? '#3FB950' : healthData.status === 'healthy' ? '#58A6FF' : healthData.status === 'fair' ? '#F0883E' : '#F85149';
+      document.getElementById('health-status').innerHTML = `<div class="text-xs font-bold mb-1" style="color:${statusColor}">${(healthData.status || 'unknown').toUpperCase()}</div><div class="text-[10px] text-text-secondary">Overall Health: <strong style="color:${statusColor}">${healthData.overall_health || 0}/100</strong></div>`;
+    }
+
+    function renderTechDebtGauge(debtData) {
+      if (!debtData) { document.getElementById('tech-debt-message').innerHTML = '<div class="text-[10px] text-text-secondary">No data available</div>'; return; }
+      const svg = d3.select('#tech-debt-gauge'); svg.selectAll('*').remove();
+      const size = 220, radius = size / 2 - 25, startAngle = Math.PI, endAngle = 2 * Math.PI, range = endAngle - startAngle;
+      svg.attr('viewBox', `0 0 ${size} ${size}`);
+      const g = svg.append('g').attr('transform', `translate(${size / 2},${size / 2})`);
+      const bgArc = d3.arc().innerRadius(radius - 15).outerRadius(radius);
+      g.append('path').attr('d', bgArc({ startAngle, endAngle, padAngle: 0 })).attr('fill', '#27272A');
+      const gradient = svg.append('defs').append('linearGradient').attr('id', 'debtGradient').attr('x1', '0%').attr('y1', '0%').attr('x2', '100%').attr('y2', '0%');
+      gradient.append('stop').attr('offset', '0%').attr('stop-color', '#3FB950');
+      gradient.append('stop').attr('offset', '50%').attr('stop-color', '#F0883E');
+      gradient.append('stop').attr('offset', '100%').attr('stop-color', '#F85149');
+      const score = Math.max(0, Math.min(100, debtData.score || 0));
+      const scoreAngle = startAngle + (score / 100) * range;
+      const scoreArc = d3.arc().innerRadius(radius - 15).outerRadius(radius);
+      g.append('path').attr('d', scoreArc({ startAngle, endAngle: scoreAngle, padAngle: 0 })).attr('fill', 'url(#debtGradient)');
+      const needleLen = radius - 5;
+      g.append('line').attr('x1', 0).attr('y1', 0).attr('x2', needleLen * Math.cos(scoreAngle - Math.PI / 2)).attr('y2', needleLen * Math.sin(scoreAngle - Math.PI / 2)).attr('stroke', '#E6EDF3').attr('stroke-width', 2.5).attr('stroke-linecap', 'round');
+      g.append('circle').attr('cx', 0).attr('cy', 0).attr('r', 4).attr('fill', '#E6EDF3');
+      g.append('text').attr('x', 0).attr('y', 15).attr('text-anchor', 'middle').attr('font-size', '20').attr('font-weight', 'bold').attr('fill', '#E6EDF3').text(score);
+      g.append('text').attr('x', 0).attr('y', 32).attr('text-anchor', 'middle').attr('font-size', '9').attr('fill', '#8B949E').text('Tech Debt Score');
+      const msgColor = debtData.color === 'green' ? '#3FB950' : debtData.color === 'yellow' ? '#F0883E' : debtData.color === 'red' ? '#F85149' : '#8B949E';
+      document.getElementById('tech-debt-message').innerHTML = `<div class="text-xs font-bold mb-1" style="color:${msgColor}">${(debtData.message || 'Unknown').slice(0, 40)}</div><div class="text-[10px] text-text-secondary">${(debtData.recommendation || 'No recommendation').slice(0, 100)}…</div>`;
     }
 
     // ── Resizable Chat Panel ──────────────────
@@ -1071,7 +1221,7 @@
         localStorage.setItem('repolens-chat-width', panel.offsetWidth);
       });
     })();
-  </script>
+    </script>
 </body>
 
 </html>
