@@ -17,14 +17,14 @@
             theme: {
                 extend: {
                     colors: {
-                        "base": "#0D1117",
-                        "surface": "#161B22",
-                        "surface-high": "#1C2129",
-                        "surface-higher": "#21262D",
-                        "surface-highest": "#2D333B",
-                        "primary": "#6E40C9",
-                        "primary-light": "#8B5CF6",
-                        "primary-dim": "rgba(110,64,201,0.15)",
+                        "base": "#121313",
+                        "surface": "#191A1B",
+                        "surface-high": "#1F2021",
+                        "surface-higher": "#262728",
+                        "surface-highest": "#323334",
+                        "primary": "#FF6044",
+                        "primary-light": "#FF7A62",
+                        "primary-dim": "rgba(255,96,68,0.15)",
                         "success": "#3FB950",
                         "info": "#58A6FF",
                         "warning": "#F0883E",
@@ -32,8 +32,8 @@
                         "text-primary": "#E6EDF3",
                         "text-secondary": "#8B949E",
                         "text-muted": "#6E7681",
-                        "border": "rgba(110,118,129,0.25)",
-                        "border-strong": "rgba(110,118,129,0.45)"
+                        "border": "rgba(130,130,130,0.22)",
+                        "border-strong": "rgba(130,130,130,0.40)"
                     },
                     fontFamily: {
                         sans: ["Inter", "sans-serif"],
@@ -1010,8 +1010,8 @@
         .attr("x1", "0%").attr("y1", "0%")
         .attr("x2", "0%").attr("y2", "100%");
 
-      gradient.append("stop").attr("offset", "0%").attr("stop-color", "#6E40C9").attr("stop-opacity", 0.4);
-      gradient.append("stop").attr("offset", "100%").attr("stop-color", "#6E40C9").attr("stop-opacity", 0);
+      gradient.append("stop").attr("offset", "0%").attr("stop-color", "#FF6044").attr("stop-opacity", 0.4);
+      gradient.append("stop").attr("offset", "100%").attr("stop-color", "#FF6044").attr("stop-opacity", 0);
 
       // Draw Area
       g.append("path")
@@ -1023,7 +1023,7 @@
       g.append("path")
         .datum(data)
         .attr("fill", "none")
-        .attr("stroke", "#8B5CF6")
+        .attr("stroke", "#FF7A62")
         .attr("stroke-width", 3)
         .attr("d", line);
 
@@ -1034,8 +1034,8 @@
         .attr("cx", d => x(d.week))
         .attr("cy", d => y(d.count))
         .attr("r", 4)
-        .attr("fill", "#161B22")
-        .attr("stroke", "#8B5CF6")
+        .attr("fill", "#191A1B")
+        .attr("stroke", "#FF7A62")
         .attr("stroke-width", 2);
 
       // Axes
@@ -1139,7 +1139,7 @@
       const pie = d3.pie().value(d => d.count);
       const arc = d3.arc().innerRadius(innerRadius).outerRadius(outerRadius);
       const arcs = g.selectAll('path').data(pie(data)).join('path')
-        .attr('fill', d => d.data.color).attr('d', arc).attr('opacity', 0.85).attr('stroke', '#0D1117').attr('stroke-width', 2);
+        .attr('fill', d => d.data.color).attr('d', arc).attr('opacity', 0.85).attr('stroke', '#121313').attr('stroke-width', 2);
       g.append('text').attr('text-anchor', 'middle').attr('dy', '0.35em').attr('font-size', '14').attr('font-weight', 'bold').attr('fill', '#E6EDF3').text(langData.primary_language);
       g.append('text').attr('text-anchor', 'middle').attr('dy', '1.5em').attr('font-size', '10').attr('fill', '#8B949E').text(`${langData.total_files} files`);
       arcs.on('mouseover', function() { d3.select(this).attr('opacity', 1); }).on('mouseout', function() { d3.select(this).attr('opacity', 0.85); });
@@ -1167,8 +1167,8 @@
         g.append('text').attr('x', (radius + 25) * Math.cos(angle * i - Math.PI / 2)).attr('y', (radius + 25) * Math.sin(angle * i - Math.PI / 2)).attr('text-anchor', 'middle').attr('font-size', '9').attr('font-weight', 'bold').attr('fill', '#8B949E').text(axes[i].label);
       }
       const points = axes.map((d, i) => { const r = Math.max(1, Math.min(100, d.value)) / 100 * radius; return [r * Math.cos(angle * i - Math.PI / 2), r * Math.sin(angle * i - Math.PI / 2)]; });
-      g.append('polygon').attr('points', points.map(p => p.join(',')).join(' ')).attr('fill', 'rgba(138,92,246,0.25)').attr('stroke', '#8B5CF6').attr('stroke-width', 1.5);
-      g.selectAll('.vertex').data(points).join('circle').attr('cx', d => d[0]).attr('cy', d => d[1]).attr('r', 2.5).attr('fill', '#8B5CF6');
+      g.append('polygon').attr('points', points.map(p => p.join(',')).join(' ')).attr('fill', 'rgba(255,96,68,0.25)').attr('stroke', '#FF7A62').attr('stroke-width', 1.5);
+      g.selectAll('.vertex').data(points).join('circle').attr('cx', d => d[0]).attr('cy', d => d[1]).attr('r', 2.5).attr('fill', '#FF7A62');
       const statusColor = healthData.status === 'excellent' ? '#3FB950' : healthData.status === 'healthy' ? '#58A6FF' : healthData.status === 'fair' ? '#F0883E' : '#F85149';
       document.getElementById('health-status').innerHTML = `<div class="text-xs font-bold mb-1" style="color:${statusColor}">${(healthData.status || 'unknown').toUpperCase()}</div><div class="text-[10px] text-text-secondary">Overall Health: <strong style="color:${statusColor}">${healthData.overall_health || 0}/100</strong></div>`;
     }

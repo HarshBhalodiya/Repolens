@@ -28,7 +28,7 @@ let sseStreamingChat = false; // Track if we're streaming
     let width, height, nodes = [],
         links = [];
     const NODE_COUNT = 50;
-    const COLORS = ['#6E40C9', '#8B5CF6', '#58A6FF', '#3FB950', '#F0883E', '#F85149'];
+    const COLORS = ['#FF6044', '#FF7A62', '#58A6FF', '#3FB950', '#F0883E', '#F85149'];
 
     function resize() {
         width = canvas.parentElement.clientWidth;
@@ -62,7 +62,7 @@ let sseStreamingChat = false; // Track if we're streaming
     function animate() {
         ctx.clearRect(0, 0, width, height);
         // Draw links
-        ctx.strokeStyle = 'rgba(110, 64, 201, 0.12)';
+        ctx.strokeStyle = 'rgba(255, 96, 68, 0.12)';
         ctx.lineWidth = 0.5;
         for (const [a, b] of links) {
             const na = nodes[a],
@@ -466,12 +466,11 @@ function toggleSidebar() {
   const sidebar = document.getElementById('sidebar');
   const toggle = document.getElementById('sidebar-toggle');
   sidebar.classList.toggle('collapsed');
-  toggle.classList.toggle('hidden');
-  const icon = toggle.querySelector('.material-symbols-outlined');
   if (sidebar.classList.contains('collapsed')) {
+    toggle.classList.remove('hidden');
+    const icon = toggle.querySelector('.material-symbols-outlined');
     icon.textContent = 'chevron_right';
   } else {
-    icon.textContent = 'chevron_left';
     toggle.classList.add('hidden');
   }
 }
@@ -633,20 +632,9 @@ async function sendChat() {
                 fullReply += data.token;
                 bubble.innerHTML = fmtReply(fullReply);
                 document.getElementById('chat-messages').scrollTop = document.getElementById('chat-messages').scrollHeight;
+              } else if (Array.isArray(data)) {
+                addSourcesPanel(data);
               }
-            } catch (_) {}
-          } else if (line.startsWith('event: sources')) {
-            // Next data line will be sources
-          } else if (line.startsWith('event: done')) {
-            break;
-          } else if (line.startsWith('event: error')) {
-            // Handle error
-          }
-          // Handle sources event data
-          if (line.startsWith('data: ') && line.includes('"file"')) {
-            try {
-              const sources = JSON.parse(line.slice(6));
-              if (Array.isArray(sources)) addSourcesPanel(sources);
             } catch (_) {}
           }
         }
@@ -1015,47 +1003,30 @@ function renderTimelineChart() {
 }
 
 async function loadInsights() {
-  // Add immediate loading state
   document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
   document.getElementById('health-status').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
   document.getElementById('tech-debt-message').innerHTML = '<div class="text-[10px] text-text-secondary">Loading...</div>';
-  
   try {
-    console.log('[insights] Loading for repo:', repoKey);
-    
     if (!repoKey) {
-      console.warn('[insights] No repoKey available');
       document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">No repo selected</div>';
       return;
     }
-    
     const resp = await fetch(`${API}/insights?repo=${encodeURIComponent(repoKey)}`);
-    console.log('[insights] Response status:', resp.status);
-    
-    if (!resp.ok) { 
-      console.warn('[insights] API returned non-ok status:', resp.status);
+    if (!resp.ok) {
       const error = await resp.text();
-      console.warn('[insights] Error response:', error);
-      document.getElementById('language-legend').innerHTML = `<div class="text-[10px] text-danger">Error ${resp.status}: ${error.slice(0, 100)}</div>`;
-      return; 
+      document.getElementById('language-legend').innerHTML = `<div class="text-[10px] text-danger">Error ${resp.status}</div>`;
+      return;
     }
-    
     const data = await resp.json();
-    console.log('[insights] Data received:', JSON.stringify(data).slice(0, 300));
-    
-    if (!data.data) { 
-      console.warn('[insights] No data in response');
+    if (!data.data) {
       document.getElementById('language-legend').innerHTML = '<div class="text-[10px] text-text-secondary">No data</div>';
       return;
     }
-
-    console.log('[insights] Rendering visualizations...');
     renderLanguageBreakdown(data.data.language_breakdown);
     renderHealthRadar(data.data.health_radar);
     renderTechDebtGauge(data.data.tech_debt);
-    console.log('[insights] Rendering complete!');
-  } catch (e) { 
-    console.error('[insights] Error:', e);
+  } catch (e) {
+    console.error('[insights]', e);
     document.getElementById('language-legend').innerHTML = `<div class="text-[10px] text-danger">${e.message}</div>`;
   }
 }
@@ -1084,7 +1055,7 @@ function renderLanguageBreakdown(langData) {
     .attr('fill', d => d.data.color)
     .attr('d', arc)
     .attr('opacity', 0.85)
-    .attr('stroke', '#0D0D12')
+    .attr('stroke', '#121313')
     .attr('stroke-width', 2);
   
   // Center text (primary language)
@@ -1187,15 +1158,15 @@ function renderHealthRadar(healthData) {
   
   g.append('polygon')
     .attr('points', points.map(p => p.join(',')).join(' '))
-    .attr('fill', 'rgba(138, 92, 246, 0.25)')
-    .attr('stroke', '#8B5CF6')
+    .attr('fill', 'rgba(255, 96, 68, 0.25)')
+    .attr('stroke', '#FF7A62')
     .attr('stroke-width', 1.5);
   
   // Dots on vertices
   g.selectAll('.vertex').data(points).join('circle')
     .attr('cx', d => d[0]).attr('cy', d => d[1])
     .attr('r', 2.5)
-    .attr('fill', '#8B5CF6');
+    .attr('fill', '#FF7A62');
   
   // Health status
   const statusEl = document.getElementById('health-status');
@@ -1416,8 +1387,14 @@ function langIcon(lang) { return { python:'code', javascript:'code', typescript:
 function langColor(lang) { return { python:'text-info', javascript:'text-warning', typescript:'text-success', java:'text-warning', go:'text-[#00ADD8]', rust:'text-[#DEA584]', ruby:'text-danger' }[lang] || 'text-text-secondary'; }
 
 function renderMd(md) {
-  let h = esc(md);
-  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, code) => `<pre><code>${code.trimEnd()}</code></pre>`);
+  // Extract code blocks BEFORE escaping to prevent double-escaping
+  const codeBlocks = [];
+  let h = md.replace(/```(\w*)\n?([\s\S]*?)```/g, (_, l, code) => {
+    codeBlocks.push(`<pre><code>${esc(code.trimEnd())}</code></pre>`);
+    return `@@CB${codeBlocks.length - 1}@@`;
+  });
+  // Escape the remaining text
+  h = esc(h);
   h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
   h = h.replace(/^### (.+)$/gm, '<h3>$1</h3>').replace(/^## (.+)$/gm, '<h2>$1</h2>').replace(/^# (.+)$/gm, '<h1>$1</h1>');
   h = h.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>').replace(/\*([^*]+)\*/g, '<em>$1</em>');
@@ -1426,6 +1403,8 @@ function renderMd(md) {
   h = h.replace(/^[-*] (.+)$/gm, '<li>$1</li>');
   h = h.replace(/(<li>[\s\S]*?<\/li>\n?)+/g, m => `<ul>${m}</ul>`);
   h = h.replace(/\n\n(?!<)/g, '</p><p>');
+  // Re-inject the code blocks
+  h = h.replace(/@@CB(\d+)@@/g, (_, i) => codeBlocks[Number(i)] || '');
   return `<p>${h}</p>`;
 }
 

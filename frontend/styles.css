@@ -1,21 +1,21 @@
 /* ═══════════════════════════════════════════════════════
    RepoLens v2 — Dark-First Design System
-   Palette: GitHub Dark Dimmed inspired
+   Palette: Neon Coral + Space Black
    ═══════════════════════════════════════════════════════ */
 
 /* ── CSS Custom Properties ──────────────────────────── */
 :root {
-  --base: #0D1117;
-  --surface: #161B22;
-  --surface-high: #1C2129;
-  --surface-higher: #21262D;
-  --surface-highest: #2D333B;
-  --border: rgba(110, 118, 129, 0.25);
-  --border-strong: rgba(110, 118, 129, 0.45);
+  --base: #121313;
+  --surface: #191A1B;
+  --surface-high: #1F2021;
+  --surface-higher: #262728;
+  --surface-highest: #323334;
+  --border: rgba(130, 130, 130, 0.22);
+  --border-strong: rgba(130, 130, 130, 0.40);
 
-  --primary: #6E40C9;
-  --primary-light: #8B5CF6;
-  --primary-dim: rgba(110, 64, 201, 0.15);
+  --primary: #FF6044;
+  --primary-light: #FF7A62;
+  --primary-dim: rgba(255, 96, 68, 0.15);
 
   --success: #3FB950;
   --info: #58A6FF;
@@ -61,9 +61,9 @@ body {
 .fill { font-variation-settings: 'FILL' 1, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
 
 /* ── Gradients ──────────────────────────────────────── */
-.ai-gradient { background: linear-gradient(135deg, #6E40C9 0%, #8B5CF6 50%, #58A6FF 100%); }
+.ai-gradient { background: linear-gradient(135deg, #FF6044 0%, #FF7A62 50%, #FF9E5C 100%); }
 .ai-gradient-text {
-  background: linear-gradient(135deg, #8B5CF6, #58A6FF);
+  background: linear-gradient(135deg, #FF6044, #FF9E5C);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -71,7 +71,7 @@ body {
 
 /* ── Glass ──────────────────────────────────────────── */
 .glass {
-  background: rgba(22, 27, 34, 0.85);
+  background: rgba(25, 26, 27, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
 }
@@ -98,8 +98,8 @@ input:focus, textarea:focus, select:focus { outline: none !important; box-shadow
 @keyframes toast-out { to { opacity: 0; transform: translateX(80px); } }
 @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 @keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 5px rgba(110, 64, 201, 0.2), 0 0 15px rgba(110, 64, 201, 0.1); }
-  50% { box-shadow: 0 0 10px rgba(110, 64, 201, 0.4), 0 0 30px rgba(110, 64, 201, 0.15); }
+  0%, 100% { box-shadow: 0 0 5px rgba(255, 96, 68, 0.2), 0 0 15px rgba(255, 96, 68, 0.1); }
+  50% { box-shadow: 0 0 10px rgba(255, 96, 68, 0.4), 0 0 30px rgba(255, 96, 68, 0.15); }
 }
 @keyframes float {
   0%, 100% { transform: translateY(0); }
@@ -169,7 +169,7 @@ input:focus, textarea:focus, select:focus { outline: none !important; box-shadow
   width: 2.5rem;
   height: 2.5rem;
   margin: 0 auto 1.25rem;
-  border: 3px solid rgba(139, 92, 246, 0.22);
+  border: 3px solid rgba(255, 96, 68, 0.22);
   border-top-color: var(--primary-light);
   border-radius: 50%;
   animation: spin 0.75s linear infinite;
@@ -369,7 +369,7 @@ input:focus, textarea:focus, select:focus { outline: none !important; box-shadow
   flex-shrink: 0; background: transparent;
   transition: background 0.15s; z-index: 5;
 }
-.chat-resize-handle:hover, .chat-resize-handle.dragging { background: rgba(110, 64, 201, 0.15); }
+.chat-resize-handle:hover, .chat-resize-handle.dragging { background: rgba(255, 96, 68, 0.15); }
 .chat-resize-handle::after {
   content: '';
   position: absolute; top: 50%; left: 50%;
@@ -399,7 +399,7 @@ input:focus, textarea:focus, select:focus { outline: none !important; box-shadow
 .toast.removing { animation: toast-out 0.3s ease forwards; }
 .toast-success { background: #0D2818; color: var(--success); border: 1px solid rgba(63, 185, 80, 0.3); }
 .toast-error { background: #2D1214; color: var(--danger); border: 1px solid rgba(248, 81, 73, 0.3); }
-.toast-info { background: #0D1D30; color: var(--info); border: 1px solid rgba(88, 166, 255, 0.3); }
+.toast-info { background: #1D1412; color: var(--primary-light); border: 1px solid rgba(255, 96, 68, 0.3); }
 
 /* ═══════════════════════════════════════════════════════
    Health Cards
@@ -442,7 +442,7 @@ input:focus, textarea:focus, select:focus { outline: none !important; box-shadow
 }
 .feature-card:hover {
   border-color: var(--primary);
-  box-shadow: 0 0 20px rgba(110, 64, 201, 0.12);
+  box-shadow: 0 0 20px rgba(255, 96, 68, 0.12);
   transform: translateY(-2px);
 }
 .feature-card .icon-wrap {

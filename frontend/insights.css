@@ -8,7 +8,7 @@
 .timeline-chart-bar {
     fill: url(#timelineGradient);
     opacity: 0.85;
-    stroke: rgba(139, 92, 246, 0.3);
+    stroke: rgba(255, 96, 68, 0.3);
     stroke-width: 0.5px;
     transition: opacity 0.15s ease;
 }
