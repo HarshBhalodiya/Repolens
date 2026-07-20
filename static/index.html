@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RepoLens - AI Git Repository Analyzer</title>
+    <link rel="stylesheet" href="static/style.css">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">🔍</span>
+                <h1 class="logo-text">RepoLens</h1>
+            </div>
+            <p class="tagline">AI-Powered Local Git Repository Analyzer</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="card input-card">
+                <h2 class="card-title">Repository Analysis</h2>
+                <p class="card-description">
+                    Enter the path to your local Git repository to analyze commit activity and patterns.
+                </p>
+                
+                <div class="input-group">
+                    <label for="repo-path" class="input-label">Repository Path</label>
+                    <input 
+                        type="text" 
+                        id="repo-path" 
+                        class="input-field" 
+                        placeholder="/path/to/your/repository"
+                        aria-describedby="path-help"
+                    >
+                    <small id="path-help" class="input-help">
+                        Example: C:\Projects\my-repo or /home/user/projects/repo
+                    </small>
+                </div>
+
+                <button id="analyze-btn" class="btn btn-primary">
+                    <span class="btn-text">Analyze Repository</span>
+                    <span class="btn-spinner hidden">Analyzing...</span>
+                </button>
+            </section>
+
+            <!-- Output Section -->
+            <section class="card output-card">
+                <h2 class="card-title">Analysis Results</h2>
+                <div class="output-container">
+                    <pre id="output-log" class="output-log">
+<span class="output-placeholder">Analysis results will appear here...
+
+Ready to analyze a repository.
+Enter a path above and click "Analyze Repository" to begin.</span></pre>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>RepoLens v1.0.0 • Week 1 Boilerplate • Local-first, Zero-build</p>
+        </footer>
+    </div>
+
+    <script src="static/app.js"></script>
+</body>
+</html>
