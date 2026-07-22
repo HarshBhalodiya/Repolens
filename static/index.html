@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RepoLens - AI Git Repository Analyzer</title>
+    <title>RepoLens - Git Repository Analyzer</title>
     <link rel="stylesheet" href="static/style.css">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
+    <!-- Chart.js from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
     <div class="container">
@@ -14,55 +16,124 @@
             <div class="logo">
                 <span class="logo-icon">🔍</span>
                 <h1 class="logo-text">RepoLens</h1>
+                <span class="badge">MVP</span>
             </div>
-            <p class="tagline">AI-Powered Local Git Repository Analyzer</p>
+            <p class="tagline">Local Git Repository Analyzer</p>
         </header>
 
         <!-- Main Content -->
         <main class="main-content">
-            <!-- Input Section -->
-            <section class="card input-card">
-                <h2 class="card-title">Repository Analysis</h2>
-                <p class="card-description">
-                    Enter the path to your local Git repository to analyze commit activity and patterns.
-                </p>
-                
+            <!-- Control Panel -->
+            <section class="card control-card">
+                <div class="control-header">
+                    <h2 class="card-title">Analyze Repository</h2>
+                    <p class="card-description">
+                        Enter the path to any local Git repository to extract commit patterns, author activity, and more.
+                    </p>
+                </div>
+
                 <div class="input-group">
                     <label for="repo-path" class="input-label">Repository Path</label>
-                    <input 
-                        type="text" 
-                        id="repo-path" 
-                        class="input-field" 
-                        placeholder="/path/to/your/repository"
-                        aria-describedby="path-help"
-                    >
-                    <small id="path-help" class="input-help">
-                        Example: C:\Projects\my-repo or /home/user/projects/repo
-                    </small>
+                    <div class="input-row">
+                        <input
+                            type="text"
+                            id="repo-path"
+                            class="input-field"
+                            placeholder="C:\Projects\my-repo or https://github.com/owner/repo"
+                            autocomplete="off"
+                            spellcheck="false"
+                        >
+                        <button id="btn-analyze" class="btn btn-primary">
+                            <span class="btn-text">Analyze</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                    </div>
                 </div>
 
-                <button id="analyze-btn" class="btn btn-primary">
-                    <span class="btn-text">Analyze Repository</span>
-                    <span class="btn-spinner hidden">Analyzing...</span>
-                </button>
-            </section>
+                <!-- Loading Spinner -->
+                <div id="loading-spinner" class="loading-indicator hidden">
+                    <div class="spinner-ring"></div>
+                    <span id="loading-text">Processing Git history...</span>
+                </div>
 
-            <!-- Output Section -->
-            <section class="card output-card">
-                <h2 class="card-title">Analysis Results</h2>
-                <div class="output-container">
-                    <pre id="output-log" class="output-log">
-<span class="output-placeholder">Analysis results will appear here...
-
-Ready to analyze a repository.
-Enter a path above and click "Analyze Repository" to begin.</span></pre>
+                <!-- Error Banner -->
+                <div id="error-banner" class="alert alert-error hidden">
+                    <span class="alert-icon">⚠️</span>
+                    <span id="error-message" class="alert-message"></span>
+                    <button id="btn-dismiss-error" class="alert-close" aria-label="Dismiss error">&times;</button>
                 </div>
             </section>
+
+            <!-- Dashboard Content Area -->
+            <div id="dashboard" class="dashboard hidden">
+                <!-- Summary Cards Grid -->
+                <div class="summary-grid">
+                    <div class="card summary-card" id="card-total-commits">
+                        <div class="summary-icon icon-commits">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline>
+                            </svg>
+                        </div>
+                        <div class="summary-body">
+                            <span class="summary-value" id="value-total-commits">—</span>
+                            <span class="summary-label">Total Commits</span>
+                        </div>
+                    </div>
+                    <div class="card summary-card" id="card-total-authors">
+                        <div class="summary-icon icon-authors">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                                <circle cx="9" cy="7" r="4"></circle>
+                                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+                            </svg>
+                        </div>
+                        <div class="summary-body">
+                            <span class="summary-value" id="value-total-authors">—</span>
+                            <span class="summary-label">Unique Authors</span>
+                        </div>
+                    </div>
+                    <div class="card summary-card" id="card-avg-msg-len">
+                        <div class="summary-icon icon-message">
+                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                        </div>
+                        <div class="summary-body">
+                            <span class="summary-value" id="value-avg-msg-len">—</span>
+                            <span class="summary-label">Avg Message Length</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Chart Section -->
+                <section class="card chart-card">
+                    <div class="chart-header">
+                        <h3 class="card-title">Commit Activity by Hour</h3>
+                        <span class="chart-subtitle">24-hour distribution of commits (UTC)</span>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="hourlyChart"></canvas>
+                    </div>
+                </section>
+
+                <!-- Top Authors Section -->
+                <section class="card authors-card">
+                    <div class="chart-header">
+                        <h3 class="card-title">Top Contributors</h3>
+                        <span class="chart-subtitle">Most active authors by commit count</span>
+                    </div>
+                    <div id="top-authors-list" class="authors-list">
+                        <!-- Dynamically populated -->
+                    </div>
+                </section>
+            </div>
         </main>
 
         <!-- Footer -->
         <footer class="footer">
-            <p>RepoLens v1.0.0 • Week 1 Boilerplate • Local-first, Zero-build</p>
+            <p>RepoLens &mdash; Local-first Git Repository Analyzer</p>
         </footer>
     </div>
 

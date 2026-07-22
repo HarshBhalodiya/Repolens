@@ -1,221 +1,377 @@
 /**
  * RepoLens Frontend Controller
- * Vanilla JavaScript for handling repository analysis requests
+ * Vanilla JavaScript for the Git repository analysis dashboard
  */
 
-// DOM Elements
-const analyzeBtn = document.getElementById('analyze-btn');
+// ============================
+// DOM References
+// ============================
 const repoPathInput = document.getElementById('repo-path');
-const outputLog = document.getElementById('output-log');
-const btnText = analyzeBtn.querySelector('.btn-text');
-const btnSpinner = analyzeBtn.querySelector('.btn-spinner');
+const btnAnalyze = document.getElementById('btn-analyze');
+const btnText = btnAnalyze.querySelector('.btn-text');
+const btnSpinner = btnAnalyze.querySelector('.btn-spinner');
+const loadingSpinner = document.getElementById('loading-spinner');
+const loadingText = document.getElementById('loading-text');
+const errorBanner = document.getElementById('error-banner');
+const errorMessage = document.getElementById('error-message');
+const btnDismissError = document.getElementById('btn-dismiss-error');
+const dashboard = document.getElementById('dashboard');
+
+// Summary card values
+const valueTotalCommits = document.getElementById('value-total-commits');
+const valueTotalAuthors = document.getElementById('value-total-authors');
+const valueAvgMsgLen = document.getElementById('value-avg-msg-len');
+
+// Canvas for Chart.js
+const hourlyChartCanvas = document.getElementById('hourlyChart');
+const topAuthorsList = document.getElementById('top-authors-list');
+
+// ============================
+// Global State
+// ============================
+let hourlyChartInstance = null;
+
+// ============================
+// Helpers
+// ============================
 
 /**
- * Display a message in the output log
- * @param {string} message - Message to display
- * @param {string} type - Message type: 'info', 'success', 'error', or 'loading'
+ * Show or hide a DOM element.
  */
-function displayMessage(message, type = 'info') {
-    const timestamp = new Date().toLocaleTimeString();
-    const prefix = {
-        info: '[INFO]',
-        success: '[SUCCESS]',
-        error: '[ERROR]',
-        loading: '[LOADING]'
-    }[type] || '[INFO]';
-
-    const formattedMessage = `\n${timestamp} ${prefix} ${message}`;
-    outputLog.textContent += formattedMessage;
-    
-    // Auto-scroll to bottom
-    outputLog.scrollTop = outputLog.scrollHeight;
-}
-
-/**
- * Clear the output log
- */
-function clearOutput() {
-    outputLog.textContent = '';
-}
-
-/**
- * Set the loading state of the analyze button
- * @param {boolean} loading - Whether the button is in loading state
- */
-function setLoadingState(loading) {
-    analyzeBtn.disabled = loading;
-    btnText.classList.toggle('hidden', loading);
-    btnSpinner.classList.toggle('hidden', !loading);
-}
-
-/**
- * Validate the repository path input
- * @param {string} path - Path to validate
- * @returns {{ valid: boolean, error?: string }}
- */
-function validatePath(path) {
-    if (!path || !path.trim()) {
-        return { valid: false, error: 'Repository path cannot be empty' };
+function setVisible(element, visible) {
+    if (!element) return;
+    if (visible) {
+        element.classList.remove('hidden');
+    } else {
+        element.classList.add('hidden');
     }
-    
-    if (path.trim().length < 2) {
-        return { valid: false, error: 'Please enter a valid repository path' };
-    }
-    
-    return { valid: true };
 }
 
 /**
- * Send analysis request to the backend
- * @param {string} repoPath - Path to the repository
- * @returns {Promise<Object>} Analysis response
+ * Show an error message in the alert banner.
  */
-async function sendAnalysisRequest(repoPath) {
-    const response = await fetch('/api/analyze', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
+function showError(message) {
+    errorMessage.textContent = message;
+    setVisible(errorBanner, true);
+}
+
+/**
+ * Hide the error banner.
+ */
+function hideError() {
+    setVisible(errorBanner, false);
+}
+
+/**
+ * Set the loading state of the UI.
+ * @param {boolean} loading - Whether to show or hide loading
+ * @param {string} [message] - Optional custom loading message
+ */
+function setLoading(loading, message) {
+    setVisible(btnText, !loading);
+    setVisible(btnSpinner, loading);
+    btnAnalyze.disabled = loading;
+    repoPathInput.disabled = loading;
+    setVisible(loadingSpinner, loading);
+    if (loading && message && loadingText) {
+        loadingText.textContent = message;
+    } else if (loading) {
+        loadingText.textContent = 'Processing Git history...';
+    }
+}
+
+/**
+ * Check if a string looks like a GitHub URL.
+ */
+function isGitHubUrl(value) {
+    if (!value) return false;
+    const trimmed = value.trim();
+    return /^https?:\/\/github\.com\//.test(trimmed)
+        || /^git@github\.com:/.test(trimmed);
+}
+
+/**
+ * Format a number with comma separators.
+ */
+function formatNumber(num) {
+    if (num == null || isNaN(num)) return '\u2014';
+    return Number(num).toLocaleString();
+}
+
+// ============================
+// Chart Rendering
+// ============================
+
+/**
+ * Render (or update) the hourly commit activity bar chart.
+ * @param {Array<{hour: number, commits: number}>} hourlyData
+ */
+function renderHourlyChart(hourlyData) {
+    // Destroy existing chart instance if it exists
+    if (hourlyChartInstance) {
+        hourlyChartInstance.destroy();
+        hourlyChartInstance = null;
+    }
+
+    const ctx = hourlyChartCanvas.getContext('2d');
+
+    const labels = hourlyData.map(d => `${String(d.hour).padStart(2, '0')}:00`);
+    const values = hourlyData.map(d => d.commits);
+
+    hourlyChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Commits',
+                data: values,
+                backgroundColor: '#2EA043',
+                hoverBackgroundColor: '#3FB950',
+                borderRadius: 3,
+                borderSkipped: false,
+            }]
         },
-        body: JSON.stringify({
-            repo_path: repoPath.trim()
-        })
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    backgroundColor: '#161B22',
+                    titleColor: '#F0F6FC',
+                    bodyColor: '#8B949E',
+                    borderColor: '#30363D',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 6,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(items) {
+                            return items[0].label;
+                        },
+                        label: function(item) {
+                            return `${item.raw} commit${item.raw !== 1 ? 's' : ''}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#30363D',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#8B949E',
+                        font: {
+                            size: 11,
+                            family: "'SFMono-Regular', Consolas, monospace",
+                        },
+                        maxRotation: 45,
+                        autoSkipPadding: 8,
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#30363D',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#8B949E',
+                        font: {
+                            size: 11,
+                        },
+                        precision: 0,
+                    },
+                }
+            },
+            animation: {
+                duration: 600,
+                easing: 'easeOutQuart',
+            },
+        }
     });
-
-    if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || `HTTP error! status: ${response.status}`);
-    }
-
-    return response.json();
 }
 
+// ============================
+// Authors List Rendering
+// ============================
+
 /**
- * Format the analysis results for display
- * @param {Object} data - Analysis response data
- * @returns {string} Formatted string
+ * Render the top authors list.
+ * @param {Array<{author: string, commits: number}>} authors
  */
-function formatResults(data) {
-    const output = [];
-    
-    output.push('═══════════════════════════════════════════');
-    output.push('           ANALYSIS COMPLETE');
-    output.push('═══════════════════════════════════════════');
-    output.push('');
-    
-    // Basic info
-    output.push(`Status: ${data.status || 'N/A'}`);
-    output.push(`Message: ${data.message || 'N/A'}`);
-    output.push(`Input Path: ${data.input_path || 'N/A'}`);
-    output.push('');
-    
-    // Data section
-    if (data.data) {
-        output.push('───────────────────────────────────────────');
-        output.push('Commit Activity by Hour (Mock Data)');
-        output.push('───────────────────────────────────────────');
-        
-        if (data.data.hours && data.data.commit_counts) {
-            // Create a simple text-based chart
-            const maxCount = Math.max(...data.data.commit_counts);
-            const barWidth = 20;
-            
-            for (let i = 0; i < data.data.hours.length; i++) {
-                const hour = String(data.data.hours[i]).padStart(2, '0');
-                const count = data.data.commit_counts[i];
-                const barLength = Math.round((count / maxCount) * barWidth);
-                const bar = '█'.repeat(barLength);
-                output.push(`${hour}:00 │ ${bar} ${count}`);
-            }
-        }
-        
-        output.push('');
-        
-        // Summary
-        if (data.data.summary) {
-            output.push('───────────────────────────────────────────');
-            output.push('Summary');
-            output.push('───────────────────────────────────────────');
-            output.push(`Total Commits: ${data.data.summary.total_commits || 0}`);
-            output.push(`Peak Hour: ${data.data.summary.peak_hour || 'N/A'}:00`);
-            output.push(`Average Commits/Hour: ${data.data.summary.average_commits || 0}`);
-        }
+function renderTopAuthors(authors) {
+    if (!topAuthorsList) return;
+
+    if (!authors || authors.length === 0) {
+        topAuthorsList.innerHTML = '<p style="font-size:14px;color:var(--text-secondary);">No author data available.</p>';
+        return;
     }
-    
-    // Metadata
-    if (data.metadata) {
-        output.push('');
-        output.push('───────────────────────────────────────────');
-        output.push('Metadata');
-        output.push('───────────────────────────────────────────');
-        output.push(`Analysis Type: ${data.metadata.analysis_type || 'N/A'}`);
-        output.push(`Generated At: ${data.metadata.generated_at || 'N/A'}`);
-        output.push(`Version: ${data.metadata.version || 'N/A'}`);
-    }
-    
-    output.push('');
-    output.push('═══════════════════════════════════════════');
-    output.push('  Note: This is Week 1 mock data.');
-    output.push('  Real analysis coming in Week 2!');
-    output.push('═══════════════════════════════════════════');
-    
-    return output.join('\n');
+
+    const maxCommits = authors[0]?.commits || 1;
+
+    const html = authors.map((author, index) => {
+        const rank = index + 1;
+        const barWidth = (author.commits / maxCommits) * 100;
+        const initials = author.author
+            .split(' ')
+            .map(w => w[0])
+            .filter(Boolean)
+            .slice(0, 2)
+            .join('')
+            .toUpperCase() || '?';
+
+        let rankClass = '';
+        if (rank === 1) rankClass = 'top-1';
+        else if (rank === 2) rankClass = 'top-2';
+        else if (rank === 3) rankClass = 'top-3';
+
+        return `
+            <div class="author-row">
+                <span class="author-rank ${rankClass}">${rank}</span>
+                <div class="author-avatar">${escapeHtml(initials)}</div>
+                <div class="author-info">
+                    <div class="author-name">${escapeHtml(author.author)}</div>
+                    <div class="author-commits">${formatNumber(author.commits)} commit${author.commits !== 1 ? 's' : ''}</div>
+                </div>
+                <div class="author-bar">
+                    <div class="author-bar-fill" style="width: ${barWidth}%"></div>
+                </div>
+            </div>
+        `;
+    }).join('');
+
+    topAuthorsList.innerHTML = html;
 }
 
 /**
- * Handle the analyze button click
+ * Simple HTML escaping to prevent XSS.
+ */
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// ============================
+// Dashboard Population
+// ============================
+
+/**
+ * Populate the dashboard with analysis results.
+ * @param {Object} data - Response from /api/analyze
+ */
+function populateDashboard(data) {
+    // Update summary cards
+    if (data.summary) {
+        valueTotalCommits.textContent = formatNumber(data.summary.total_commits);
+        valueTotalAuthors.textContent = formatNumber(data.summary.total_authors);
+    }
+    valueAvgMsgLen.textContent = data.avg_message_length != null
+        ? `${data.avg_message_length} chars`
+        : '\u2014';
+
+    // Render chart
+    if (data.hourly_distribution && Array.isArray(data.hourly_distribution)) {
+        renderHourlyChart(data.hourly_distribution);
+    }
+
+    // Render top authors
+    if (data.top_authors && Array.isArray(data.top_authors)) {
+        renderTopAuthors(data.top_authors);
+    }
+
+    // Show dashboard
+    setVisible(dashboard, true);
+}
+
+// ============================
+// Analysis Request
+// ============================
+
+/**
+ * Send analysis request to the backend.
  */
 async function handleAnalyzeClick() {
     const repoPath = repoPathInput.value;
-    
+
     // Validate input
-    const validation = validatePath(repoPath);
-    if (!validation.valid) {
-        clearOutput();
-        displayMessage(validation.error, 'error');
+    if (!repoPath || !repoPath.trim()) {
+        showError('Please enter a valid directory path.');
         return;
     }
-    
-    // Set loading state
-    setLoadingState(true);
-    clearOutput();
-    displayMessage(`Starting analysis for: ${repoPath.trim()}`, 'info');
-    displayMessage('Sending request to server...', 'loading');
-    
+
+    // Reset UI
+    hideError();
+    setVisible(dashboard, false);
+
+    // Choose loading message based on input type
+    const loadingMsg = isGitHubUrl(repoPath)
+        ? 'Cloning remote repository...'
+        : 'Processing Git history...';
+    setLoading(true, loadingMsg);
+
     try {
-        // Send request
-        const result = await sendAnalysisRequest(repoPath);
-        
-        // Display results
-        clearOutput();
-        displayMessage(formatResults(result), 'success');
-        
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repo_path: repoPath.trim() }),
+        });
+
+        if (!response.ok) {
+            // Parse error detail from JSON response
+            let detail = `Request failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) {
+                    detail = errorData.detail;
+                }
+            } catch (_) {
+                // Use default detail if parsing fails
+            }
+            throw new Error(detail);
+        }
+
+        const data = await response.json();
+        populateDashboard(data);
+
     } catch (error) {
-        // Handle errors
-        clearOutput();
-        displayMessage(`Analysis failed: ${error.message}`, 'error');
-        displayMessage('Please check the repository path and try again.', 'info');
+        // Show error in the banner
+        showError(error.message || 'An unexpected error occurred while analyzing the repository.');
+        setVisible(dashboard, false);
     } finally {
-        // Always re-enable the button
-        setLoadingState(false);
+        // Always re-enable the UI
+        setLoading(false);
     }
 }
 
-/**
- * Handle Enter key press in the input field
- * @param {KeyboardEvent} event 
- */
-function handleKeyPress(event) {
-    if (event.key === 'Enter' && !analyzeBtn.disabled) {
+// ============================
+// Event Listeners
+// ============================
+
+// Analyze button click
+btnAnalyze.addEventListener('click', handleAnalyzeClick);
+
+// Enter key in input field
+repoPathInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !btnAnalyze.disabled) {
         handleAnalyzeClick();
     }
-}
+});
 
-// Event Listeners
-analyzeBtn.addEventListener('click', handleAnalyzeClick);
-repoPathInput.addEventListener('keypress', handleKeyPress);
+// Dismiss error banner
+btnDismissError.addEventListener('click', hideError);
 
-// Initialize - show welcome message
+// ============================
+// Initialization
+// ============================
 document.addEventListener('DOMContentLoaded', () => {
-    displayMessage('RepoLens v1.0.0 initialized', 'info');
-    displayMessage('Ready to analyze repositories', 'info');
+    // Focus the input on load
+    repoPathInput.focus();
 });
