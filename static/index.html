@@ -128,6 +128,41 @@
                         <!-- Dynamically populated -->
                     </div>
                 </section>
+
+                <!-- Code Churn Section -->
+                <section class="card churn-card">
+                    <div class="chart-header">
+                        <h3 class="card-title">Code Churn Trend</h3>
+                        <span class="chart-subtitle">Daily lines added vs. deleted</span>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="churnChart"></canvas>
+                    </div>
+                </section>
+
+                <!-- File Hotspots Section -->
+                <section class="card hotspots-card">
+                    <div class="chart-header">
+                        <h3 class="card-title">Top File Hotspots</h3>
+                        <span class="chart-subtitle">Most frequently changed files</span>
+                    </div>
+                    <div class="hotspots-table-wrapper">
+                        <table id="hotspots-table" class="hotspots-table">
+                            <thead>
+                                <tr>
+                                    <th>File Path</th>
+                                    <th>Changes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dynamically populated -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div id="hotspots-empty" class="hotspots-empty hidden">
+                        <p>No file hotspot data available.</p>
+                    </div>
+                </section>
             </div>
         </main>
 

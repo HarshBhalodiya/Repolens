@@ -24,12 +24,16 @@ const valueAvgMsgLen = document.getElementById('value-avg-msg-len');
 
 // Canvas for Chart.js
 const hourlyChartCanvas = document.getElementById('hourlyChart');
+const churnChartCanvas = document.getElementById('churnChart');
 const topAuthorsList = document.getElementById('top-authors-list');
+const hotspotsTable = document.getElementById('hotspots-table');
+const hotspotsEmpty = document.getElementById('hotspots-empty');
 
 // ============================
 // Global State
 // ============================
 let hourlyChartInstance = null;
+let churnChartInstance = null;
 
 // ============================
 // Helpers
@@ -197,6 +201,167 @@ function renderHourlyChart(hourlyData) {
 }
 
 // ============================
+// Code Churn Chart Rendering
+// ============================
+
+/**
+ * Render (or update) the code churn line/bar chart.
+ * Uses a bar chart with additions in green and deletions in red.
+ * @param {Array<{date: string, insertions: number, deletions: number}>} churnData
+ */
+function renderChurnChart(churnData) {
+    // Destroy existing chart instance if it exists
+    if (churnChartInstance) {
+        churnChartInstance.destroy();
+        churnChartInstance = null;
+    }
+
+    const ctx = churnChartCanvas.getContext('2d');
+
+    const labels = churnData.map(d => {
+        const dt = new Date(d.date + 'T00:00:00');
+        return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    });
+    const insertions = churnData.map(d => d.insertions);
+    const deletions = churnData.map(d => d.deletions);
+
+    churnChartInstance = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: 'Additions',
+                    data: insertions,
+                    backgroundColor: 'rgba(46, 160, 67, 0.8)',
+                    hoverBackgroundColor: 'rgba(46, 160, 67, 1)',
+                    borderRadius: 3,
+                    borderSkipped: false,
+                },
+                {
+                    label: 'Deletions',
+                    data: deletions,
+                    backgroundColor: 'rgba(248, 81, 73, 0.8)',
+                    hoverBackgroundColor: 'rgba(248, 81, 73, 1)',
+                    borderRadius: 3,
+                    borderSkipped: false,
+                },
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'top',
+                    align: 'end',
+                    labels: {
+                        color: '#8B949E',
+                        font: {
+                            size: 12,
+                            family: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                        },
+                        padding: 16,
+                        usePointStyle: true,
+                        pointStyle: 'circle',
+                    },
+                },
+                tooltip: {
+                    backgroundColor: '#161B22',
+                    titleColor: '#F0F6FC',
+                    bodyColor: '#8B949E',
+                    borderColor: '#30363D',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 6,
+                    displayColors: true,
+                    callbacks: {
+                        title: function(items) {
+                            return items[0].label;
+                        },
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#30363D',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#8B949E',
+                        font: {
+                            size: 11,
+                            family: "'SFMono-Regular', Consolas, monospace",
+                        },
+                        maxRotation: 45,
+                        autoSkipPadding: 8,
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#30363D',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#8B949E',
+                        font: {
+                            size: 11,
+                        },
+                        precision: 0,
+                    },
+                }
+            },
+            animation: {
+                duration: 600,
+                easing: 'easeOutQuart',
+            },
+        }
+    });
+}
+
+// ============================
+// File Hotspots Table Rendering
+// ============================
+
+/**
+ * Render the top file hotspots table.
+ * @param {Array<{file_path: string, changes: number}>} hotspotsData
+ */
+function renderHotspotsTable(hotspotsData) {
+    if (!hotspotsTable) return;
+
+    const tbody = hotspotsTable.querySelector('tbody');
+    if (!tbody) return;
+
+    if (!hotspotsData || hotspotsData.length === 0) {
+        setVisible(hotspotsTable, false);
+        setVisible(hotspotsEmpty, true);
+        return;
+    }
+
+    setVisible(hotspotsTable, true);
+    setVisible(hotspotsEmpty, false);
+
+    // Clear existing rows
+    tbody.innerHTML = '';
+
+    const rowHtml = hotspotsData.map(item => {
+        const safePath = escapeHtml(item.file_path);
+        const safeChanges = formatNumber(item.changes);
+        return `
+            <tr>
+                <td class="file-path-cell">${safePath}</td>
+                <td class="changes-cell"><span class="changes-badge">${safeChanges} changes</span></td>
+            </tr>
+        `;
+    }).join('');
+
+    tbody.innerHTML = rowHtml;
+}
+
+// ============================
 // Authors List Rendering
 // ============================
 
@@ -283,6 +448,16 @@ function populateDashboard(data) {
     // Render top authors
     if (data.top_authors && Array.isArray(data.top_authors)) {
         renderTopAuthors(data.top_authors);
+    }
+
+    // Render code churn chart
+    if (data.code_churn && Array.isArray(data.code_churn) && data.code_churn.length > 0) {
+        renderChurnChart(data.code_churn);
+    }
+
+    // Render file hotspots table
+    if (data.hotspots && Array.isArray(data.hotspots)) {
+        renderHotspotsTable(data.hotspots);
     }
 
     // Show dashboard
