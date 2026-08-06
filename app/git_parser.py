@@ -5,9 +5,11 @@ Extracts and analyzes commit metrics from local Git repositories
 using subprocess and Pandas for data processing.
 """
 
+import os
 import re
 import subprocess
 from collections import Counter
+from pathlib import Path
 
 import pandas as pd
 
@@ -183,8 +185,85 @@ def extract_repo_metrics(repo_path: str) -> dict:
         "top_authors": top_authors,
         "code_churn": code_churn,
         "hotspots": hotspots,
+        "languages": get_language_distribution(repo_path),
         "avg_message_length": avg_message_length,
     }
+
+
+def get_language_distribution(repo_path: str) -> list:
+    """
+    Compute programming language distribution based on file size.
+    """
+    ignored = {
+        ".git", "node_modules", "venv", "__pycache__", "dist", "build",
+        ".venv", "env", ".env", "chroma_db", ".pytest_cache", ".idea", ".vscode"
+    }
+    lang_map = {
+        ".py": "Python",
+        ".js": "JavaScript",
+        ".jsx": "JavaScript",
+        ".ts": "TypeScript",
+        ".tsx": "TypeScript",
+        ".html": "HTML",
+        ".css": "CSS",
+        ".json": "JSON",
+        ".md": "Markdown",
+        ".go": "Go",
+        ".rs": "Rust",
+        ".java": "Java",
+        ".c": "C",
+        ".cpp": "C++",
+        ".h": "C/C++ Header",
+        ".cs": "C#",
+        ".sql": "SQL",
+        ".sh": "Shell",
+        ".yml": "YAML",
+        ".yaml": "YAML",
+    }
+    sizes = {}
+    total_size = 0
+
+    ignored_files = {
+        "package-lock.json",
+        "yarn.lock",
+        "pnpm-lock.yaml",
+        "composer.lock",
+        "poetry.lock",
+        "Gemfile.lock",
+        "Cargo.lock",
+    }
+
+    for root, dirs, names in os.walk(repo_path):
+        dirs[:] = [d for d in dirs if d not in ignored]
+        for name in names:
+            if name in ignored_files:
+                continue
+            ext = Path(name).suffix.lower()
+            if ext in lang_map:
+                lang = lang_map[ext]
+                full_path = os.path.join(root, name)
+                try:
+                    if os.path.islink(full_path):
+                        continue
+                    sz = os.path.getsize(full_path)
+                    if sz > 1_000_000:
+                        continue
+                    sizes[lang] = sizes.get(lang, 0) + sz
+                    total_size += sz
+                except OSError:
+                    continue
+
+    if total_size == 0:
+        return []
+
+    dist = []
+    for lang, sz in sizes.items():
+        percentage = round((sz / total_size) * 100, 1)
+        if percentage >= 0.1:
+            dist.append({"language": lang, "percentage": percentage, "size": sz})
+
+    dist.sort(key=lambda x: x["size"], reverse=True)
+    return dist
 
 
 def _empty_metrics(reason: str = "") -> dict:
@@ -210,6 +289,7 @@ def _empty_metrics(reason: str = "") -> dict:
         "top_authors": [],
         "code_churn": [],
         "hotspots": [],
+        "languages": [],
         "avg_message_length": 0,
     }
     if reason:

@@ -555,6 +555,110 @@ body {
 }
 
 /* ============================
+   Contributor and Language Section Row
+   ============================ */
+.dashboard-row {
+    display: grid;
+    grid-template-columns: 3fr 2fr;
+    gap: var(--spacing-lg);
+}
+
+@media (max-width: 768px) {
+    .dashboard-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.header-with-action {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.btn-text-action {
+    background: none;
+    border: none;
+    color: var(--accent-color);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    border-radius: var(--radius-sm);
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.btn-text-action:hover {
+    background-color: rgba(88, 166, 255, 0.1);
+    color: var(--accent-hover);
+}
+
+.btn-text-action.hidden {
+    display: none;
+}
+
+/* ============================
+   Languages Card
+   ============================ */
+.languages-card {
+    padding: var(--spacing-xl);
+}
+
+.languages-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.language-bar {
+    display: flex;
+    height: 10px;
+    border-radius: 5px;
+    overflow: hidden;
+    background-color: var(--border-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.language-bar-segment {
+    height: 100%;
+}
+
+.languages-legend {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md) var(--spacing-lg);
+}
+
+.languages-legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-sm);
+}
+
+.language-color-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.language-name {
+    font-weight: 500;
+    color: var(--text-primary);
+    flex-grow: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.language-percentage {
+    color: var(--text-secondary);
+    font-weight: 400;
+}
+
+
+/* ============================
    Authors List
    ============================ */
 .authors-card {

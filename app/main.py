@@ -192,6 +192,11 @@ async def analyze_repository(request: AnalysisRequest):
             # Auto-heal: ignore (and implicitly overwrite) stale empty/errored
             # entries so a single bad run can't blank the dashboard forever.
             if cached is not None and _is_valid_cached_payload(cached):
+                # Ensure the cached response has languages (handles migration for older cache entries)
+                if "languages" not in cached:
+                    from .git_parser import get_language_distribution
+                    cached["languages"] = get_language_distribution(real_path)
+                    save_analysis_cache(repo_input, commit_hash, cached)
                 # Attach per-request metadata to the cached payload
                 cached["_source"] = source_label
                 cached["_input"] = repo_input

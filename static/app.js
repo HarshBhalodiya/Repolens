@@ -59,6 +59,8 @@ const graphStatus = document.getElementById('graph-status');
 // ============================
 let hourlyChartInstance = null;
 let churnChartInstance = null;
+let showAllAuthors = false;
+let allAuthorsData = [];
 
 // ============================
 // Helpers
@@ -425,12 +427,27 @@ function renderTopAuthors(authors) {
 
     if (!authors || authors.length === 0) {
         topAuthorsList.innerHTML = '<p style="font-size:14px;color:var(--text-secondary);">No author data available.</p>';
+        const btn = document.getElementById('btn-toggle-authors');
+        if (btn) setVisible(btn, false);
         return;
     }
 
+    allAuthorsData = authors;
+
+    const btn = document.getElementById('btn-toggle-authors');
+    if (btn) {
+        if (authors.length > 4) {
+            setVisible(btn, true);
+            btn.textContent = showAllAuthors ? 'Show Less' : 'View More';
+        } else {
+            setVisible(btn, false);
+        }
+    }
+
+    const displayAuthors = showAllAuthors ? authors : authors.slice(0, 4);
     const maxCommits = authors[0]?.commits || 1;
 
-    const html = authors.map((author, index) => {
+    const html = displayAuthors.map((author, index) => {
         const rank = index + 1;
         const barWidth = (author.commits / maxCommits) * 100;
         const initials = author.author
@@ -462,6 +479,77 @@ function renderTopAuthors(authors) {
     }).join('');
 
     topAuthorsList.innerHTML = html;
+}
+
+// ============================
+// Languages Rendering
+// ============================
+
+const LANGUAGE_COLORS = {
+    'Python': '#3572A5',
+    'JavaScript': '#f1e05a',
+    'TypeScript': '#3178c6',
+    'HTML': '#e34c26',
+    'CSS': '#563d7c',
+    'Go': '#00ADD8',
+    'Rust': '#dea584',
+    'Java': '#b07219',
+    'C++': '#f34b7d',
+    'C': '#555555',
+    'C#': '#178600',
+    'SQL': '#e98615',
+    'Shell': '#89e051',
+    'YAML': '#cb171e',
+    'Markdown': '#083fa1',
+    'JSON': '#292929',
+};
+
+/**
+ * Render the programming languages card.
+ * @param {Array<{language: string, percentage: number, size: number}>} languages
+ */
+function renderLanguages(languages) {
+    const listEl = document.getElementById('languages-list');
+    if (!listEl) return;
+    listEl.innerHTML = '';
+
+    if (!languages || languages.length === 0) {
+        listEl.innerHTML = '<p style="font-size:14px;color:var(--text-secondary);padding:var(--spacing-md) 0;">No language data available.</p>';
+        return;
+    }
+
+    // Create progress bar container
+    const bar = document.createElement('div');
+    bar.className = 'language-bar';
+
+    // Create legend container
+    const legend = document.createElement('div');
+    legend.className = 'languages-legend';
+
+    languages.forEach(item => {
+        const color = LANGUAGE_COLORS[item.language] || '#8b949e';
+
+        // Segment element
+        const segment = document.createElement('div');
+        segment.className = 'language-bar-segment';
+        segment.style.width = `${item.percentage}%`;
+        segment.style.backgroundColor = color;
+        segment.title = `${item.language}: ${item.percentage}%`;
+        bar.appendChild(segment);
+
+        // Legend element
+        const legendItem = document.createElement('div');
+        legendItem.className = 'languages-legend-item';
+        legendItem.innerHTML = `
+            <span class="language-color-dot" style="background-color: ${color};"></span>
+            <span class="language-name">${escapeHtml(item.language)}</span>
+            <span class="language-percentage">${item.percentage}%</span>
+        `;
+        legend.appendChild(legendItem);
+    });
+
+    listEl.appendChild(bar);
+    listEl.appendChild(legend);
 }
 
 /**
@@ -499,6 +587,13 @@ function populateDashboard(data) {
     // Render top authors
     if (data.top_authors && Array.isArray(data.top_authors)) {
         renderTopAuthors(data.top_authors);
+    }
+
+    // Render languages
+    if (data.languages && Array.isArray(data.languages)) {
+        renderLanguages(data.languages);
+    } else {
+        renderLanguages([]);
     }
 
     // Render code churn chart
@@ -569,6 +664,10 @@ async function handleAnalyzeClick(forceRefresh) {
     hideError();
     hideCacheBadge();
     setVisible(dashboard, false);
+    if (chatHistory) chatHistory.innerHTML = '';
+    if (chatInput) chatInput.value = '';
+    showAllAuthors = false;
+    allAuthorsData = [];
 
     // Choose loading message based on input type
     let loadingMsg = isGitHubUrl(repoPath)
@@ -929,7 +1028,10 @@ function renderDependencyGraph(data) {
     svg.selectAll('*').remove();
 
     const nodes = (data.nodes || []).map(n => ({ id: n.id, label: n.label }));
-    const edges = (data.edges || []).map(e => ({ source: e.source, target: e.target }));
+    const nodeIds = new Set(nodes.map(n => n.id));
+    const edges = (data.edges || [])
+        .filter(e => nodeIds.has(e.source) && nodeIds.has(e.target))
+        .map(e => ({ source: e.source, target: e.target }));
 
     if (!nodes.length) {
         setGraphStatus('No files to display.', 'info');
@@ -1131,6 +1233,15 @@ chatInput.addEventListener('keydown', (event) => {
         handleSendChatClick();
     }
 });
+
+// Toggle contributors button click
+const btnToggleAuthors = document.getElementById('btn-toggle-authors');
+if (btnToggleAuthors) {
+    btnToggleAuthors.addEventListener('click', () => {
+        showAllAuthors = !showAllAuthors;
+        renderTopAuthors(allAuthorsData);
+    });
+}
 // ============================
 // Initialization
 // ============================

@@ -359,7 +359,11 @@ def build_dependency_graph(repo_path: str) -> dict:
         {"id": file_path, "label": Path(file_path).name}
         for file_path in sorted(parsed_files)
     ]
+    
+    parsed_set = set(parsed_files)
     edge_list = [
-        {"source": source, "target": target} for source, target in sorted(edges)
+        {"source": source, "target": target}
+        for source, target in sorted(edges)
+        if source in parsed_set and target in parsed_set
     ]
     return {"nodes": nodes, "edges": edge_list, "status": "completed"}

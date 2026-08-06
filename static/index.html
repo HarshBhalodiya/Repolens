@@ -120,6 +120,36 @@
                     </div>
                 </div>
 
+                <!-- Contributor and Language Section Row -->
+                <div class="dashboard-row">
+                    <!-- Top Authors Section -->
+                    <section class="card authors-card">
+                        <div class="chart-header">
+                            <div class="header-with-action">
+                                <div>
+                                    <h3 class="card-title">Top Contributors</h3>
+                                    <span class="chart-subtitle">Most active authors by commit count</span>
+                                </div>
+                                <button id="btn-toggle-authors" class="btn-text-action hidden">View More</button>
+                            </div>
+                        </div>
+                        <div id="top-authors-list" class="authors-list">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+
+                    <!-- Languages Section -->
+                    <section class="card languages-card">
+                        <div class="chart-header">
+                            <h3 class="card-title">Languages</h3>
+                            <span class="chart-subtitle">Codebase language breakdown by file size</span>
+                        </div>
+                        <div id="languages-list" class="languages-list">
+                            <!-- Dynamically populated -->
+                        </div>
+                    </section>
+                </div>
+                
                 <!-- Chart Section -->
                 <section class="card chart-card">
                     <div class="chart-header">
@@ -128,17 +158,6 @@
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="hourlyChart"></canvas>
-                    </div>
-                </section>
-
-                <!-- Top Authors Section -->
-                <section class="card authors-card">
-                    <div class="chart-header">
-                        <h3 class="card-title">Top Contributors</h3>
-                        <span class="chart-subtitle">Most active authors by commit count</span>
-                    </div>
-                    <div id="top-authors-list" class="authors-list">
-                        <!-- Dynamically populated -->
                     </div>
                 </section>
 
