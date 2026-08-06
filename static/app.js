@@ -30,19 +30,17 @@ const valueAvgMsgLen = document.getElementById('value-avg-msg-len');
 // Canvas for Chart.js
 const hourlyChartCanvas = document.getElementById('hourlyChart');
 const churnChartCanvas = document.getElementById('churnChart');
+const churnChartWrapper = document.getElementById('churn-chart-wrapper');
+const churnEmpty = document.getElementById('churn-empty');
 const topAuthorsList = document.getElementById('top-authors-list');
 const hotspotsTable = document.getElementById('hotspots-table');
 const hotspotsEmpty = document.getElementById('hotspots-empty');
 
-// AI features (standup summary / codebase indexing)
+// AI features (standup summary)
 const btnGenerateSummary = document.getElementById('btn-generate-summary');
-const btnIndexRepo = document.getElementById('btn-index-repo');
 const standupContent = document.getElementById('standup-content');
-const indexStatus = document.getElementById('index-status');
 const btnGenerateText = btnGenerateSummary.querySelector('.btn-text');
 const btnGenerateSpinner = btnGenerateSummary.querySelector('.btn-spinner');
-const btnIndexText = btnIndexRepo.querySelector('.btn-text');
-const btnIndexSpinner = btnIndexRepo.querySelector('.btn-spinner');
 
 // ============================
 // Global State
@@ -108,7 +106,10 @@ function setLoading(loading, message) {
 function isGitHubUrl(value) {
     if (!value) return false;
     const trimmed = value.trim();
-    return /^https?:\/\/github\.com\//.test(trimmed)
+    // HTTPS only: the backend's GITHUB_HTTPS_PATTERN (app/utils.py) does
+    // not accept plain http:// URLs, so they must not be treated as GitHub
+    // here either (handleAnalyzeClick rejects them with a clear message).
+    return /^https:\/\/github\.com\//.test(trimmed)
         || /^git@github\.com:/.test(trimmed);
 }
 
@@ -228,6 +229,12 @@ function renderHourlyChart(hourlyData) {
  * @param {Array<{date: string, insertions: number, deletions: number}>} churnData
  */
 function renderChurnChart(churnData) {
+    // We have data, so make sure the chart is visible and the empty state
+    // is hidden (they can be left over from a previously analyzed repo).
+    // setVisible() null-checks internally, so no guards are needed.
+    setVisible(churnChartWrapper, true);
+    setVisible(churnEmpty, false);
+
     // Destroy existing chart instance if it exists
     if (churnChartInstance) {
         churnChartInstance.destroy();
@@ -337,6 +344,20 @@ function renderChurnChart(churnData) {
             },
         }
     });
+}
+
+/**
+ * Clear the code churn chart and show the empty state.
+ * Called when a repo has no churn data, so a stale chart from a
+ * previously analyzed repo cannot linger under the new results.
+ */
+function clearChurnChart() {
+    if (churnChartInstance) {
+        churnChartInstance.destroy();
+        churnChartInstance = null;
+    }
+    setVisible(churnChartWrapper, false);
+    setVisible(churnEmpty, true);
 }
 
 // ============================
@@ -471,6 +492,12 @@ function populateDashboard(data) {
     // Render code churn chart
     if (data.code_churn && Array.isArray(data.code_churn) && data.code_churn.length > 0) {
         renderChurnChart(data.code_churn);
+    } else {
+        // Root cause: without this branch a newly analyzed repo with zero
+        // churn data left the previous repo's chart on screen, mislabeled
+        // under the new results. Clear/hide it, mirroring how the hotspots
+        // table handles its empty case.
+        clearChurnChart();
     }
 
     // Render file hotspots table
@@ -514,6 +541,15 @@ async function handleAnalyzeClick(forceRefresh) {
     // Validate input
     if (!repoPath || !repoPath.trim()) {
         showError('Please enter a valid directory path.');
+        return;
+    }
+
+    // Root cause of the misleading error: isGitHubUrl() used to accept
+    // http:// links, so they showed a "Cloning..." loading state and were
+    // only rejected server-side with a confusing "Path does not exist"
+    // message (the backend accepts https:// only). Reject upfront instead.
+    if (/^http:\/\/(?:www\.)?github\.com\//.test(repoPath.trim())) {
+        showError('Unsupported URL scheme: only https:// GitHub URLs are supported (use https://github.com/owner/repo).');
         return;
     }
 
@@ -569,14 +605,10 @@ async function handleAnalyzeClick(forceRefresh) {
             hideCacheBadge();
         }
 
-        // Surface extraction failures (e.g. git log timeout) instead of
-        // rendering a blank dashboard with no explanation
-        if (payload.data && payload.data._error) {
-            showError(`Analysis did not complete: ${payload.data._error}`);
-            setVisible(dashboard, false);
-            return;
-        }
-
+        // Note: extraction failures (git log timeout, etc.) are now surfaced
+        // as a non-2xx response with `detail` (handled by the error path
+        // below) rather than a 200 payload carrying `_error`, so no `_error`
+        // check is needed here anymore.
         populateDashboard(payload.data || {});
 
     } catch (error) {
@@ -666,25 +698,7 @@ function renderStandupSummary(payload) {
     `;
 }
 
-/**
- * Set the codebase index status badge text and state style.
- * @param {string} message - Status text
- * @param {'idle'|'active'|'success'|'error'} state - Visual state
- */
-function setIndexStatus(message, state) {
-    indexStatus.textContent = message;
-    indexStatus.className = 'index-status';
-    indexStatus.classList.add(`index-status-${state}`);
-}
 
-/**
- * Toggle the loading state of the "Index Codebase" button.
- */
-function setIndexingLoading(loading) {
-    setVisible(btnIndexText, !loading);
-    setVisible(btnIndexSpinner, loading);
-    btnIndexRepo.disabled = loading;
-}
 
 /**
  * Send a standup summary request to the backend.
@@ -734,53 +748,7 @@ async function handleGenerateSummaryClick() {
     }
 }
 
-/**
- * Send a codebase indexing request to the backend.
- */
-async function handleIndexRepoClick() {
-    const repoPath = repoPathInput.value;
-    if (!repoPath || !repoPath.trim()) {
-        showError('Please enter a repository path first.');
-        return;
-    }
 
-    hideError();
-    setIndexingLoading(true);
-    setIndexStatus('Indexing files...', 'active');
-
-    try {
-        const response = await fetch('/api/index_codebase', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ repo_path: repoPath.trim() }),
-        });
-
-        if (!response.ok) {
-            let detail = `Request failed with status ${response.status}`;
-            try {
-                const errorData = await response.json();
-                if (errorData.detail) detail = errorData.detail;
-            } catch (_) { /* use default detail */ }
-            throw new Error(detail);
-        }
-
-        const payload = await response.json();
-        if (payload.status === 'error') {
-            setIndexStatus(payload.message || 'Indexing failed.', 'error');
-        } else {
-            setIndexStatus(
-                `Indexed ${payload.indexed_files} files (${payload.total_chunks} chunks)`,
-                'success'
-            );
-        }
-    } catch (error) {
-        setIndexStatus(error.message || 'Indexing failed.', 'error');
-    } finally {
-        setIndexingLoading(false);
-    }
-}
 
 // ============================
 // Event Listeners
@@ -804,7 +772,6 @@ btnDismissError.addEventListener('click', hideError);
 
 // AI features
 btnGenerateSummary.addEventListener('click', handleGenerateSummaryClick);
-btnIndexRepo.addEventListener('click', handleIndexRepoClick);
 
 // ============================
 // Initialization

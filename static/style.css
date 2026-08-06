@@ -723,6 +723,18 @@ body {
     padding: var(--spacing-xl);
 }
 
+/* Empty state shown when a repo has no churn data (mirrors hotspots-empty). */
+.churn-empty {
+    text-align: center;
+    padding: var(--spacing-lg);
+    color: var(--text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.churn-empty.hidden {
+    display: none;
+}
+
 /* ============================
    File Hotspots Card & Table
    ============================ */
@@ -833,7 +845,7 @@ body {
    ============================ */
 .ai-tools-grid {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr;
     gap: var(--spacing-lg);
 }
 
@@ -976,52 +988,7 @@ body {
     color: var(--text-secondary);
 }
 
-/* Index status badge */
-.index-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 4px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    border-radius: 20px;
-    white-space: nowrap;
-    transition: all var(--transition-fast);
-}
 
-.index-status-idle {
-    background: rgba(139, 148, 158, 0.12);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-}
-
-.index-status-active {
-    background: rgba(88, 166, 255, 0.12);
-    color: var(--accent-color);
-    border: 1px solid rgba(88, 166, 255, 0.3);
-    animation: statusPulse 1.2s ease-in-out infinite;
-}
-
-.index-status-success {
-    background: rgba(63, 185, 80, 0.12);
-    color: var(--success-color);
-    border: 1px solid rgba(63, 185, 80, 0.3);
-}
-
-.index-status-error {
-    background: rgba(248, 81, 73, 0.12);
-    color: var(--error-color);
-    border: 1px solid rgba(248, 81, 73, 0.3);
-}
-
-@keyframes statusPulse {
-    0%, 100% {
-        box-shadow: 0 0 0 rgba(88, 166, 255, 0);
-    }
-    50% {
-        box-shadow: 0 0 10px rgba(88, 166, 255, 0.35);
-    }
-}
 
 /* ============================
    Scrollbar Styles

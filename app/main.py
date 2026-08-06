@@ -7,6 +7,7 @@ Supports both local Git repositories and remote GitHub URLs.
 
 import os
 import shutil
+from pathlib import Path
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,7 +18,6 @@ from pydantic import BaseModel
 from .ai_engine import generate_standup_summary
 from .db_client import get_cached_analysis, save_analysis_cache
 from .git_parser import extract_repo_metrics
-from .rag_indexer import index_codebase
 from .utils import (
     clone_github_repo,
     get_latest_commit_hash,
@@ -27,6 +27,13 @@ from .utils import (
 
 # Initialize FastAPI application
 app = FastAPI(title="RepoLens", description="AI-powered local Git repository analyzer")
+
+# Repo root derived from this file's own location. Root cause of the
+# original bug: "static" / "static/index.html" were resolved against the
+# process's current working directory, so `uvicorn app.main:app` only
+# worked when launched from the exact repo root and crashed with
+# RuntimeError: Directory 'static' does not exist from anywhere else.
+_BASE_DIR = Path(__file__).resolve().parent.parent
 
 # --- CORS middleware ---
 # `allow_origins=["*"]` combined with `allow_credentials=True` is an invalid
@@ -166,6 +173,14 @@ async def analyze_repository(request: AnalysisRequest):
         # --- Fresh analysis ---
         metrics = extract_repo_metrics(real_path)
 
+        # A non-empty `_error` key means extraction did not complete (e.g.
+        # git log timed out, git missing). Previously this was returned as
+        # HTTP 200 with all-zero metrics, so API consumers had no reliable
+        # way to detect failure without inspecting the payload body. Return
+        # a non-2xx status instead; the error detail carries the reason.
+        if metrics.get("_error"):
+            raise HTTPException(status_code=500, detail=metrics["_error"])
+
         # Add metadata about the source
         metrics["_source"] = source_label
         metrics["_input"] = repo_input
@@ -216,45 +231,43 @@ def summarize_standup(request: RepoPathRequest):
             status_code=400,
             detail="Repository path cannot be empty.",
         )
-    return generate_standup_summary(request.repo_path.strip())
+    
+    repo_input = request.repo_path.strip()
+    temp_cleanup_path = None
+    try:
+        if is_github_url(repo_input):
+            cloned_path, _ = clone_github_repo(repo_input)
+            temp_cleanup_path = cloned_path
+            real_path = cloned_path
+        else:
+            real_path = repo_input
+
+        return generate_standup_summary(real_path)
+    except Exception as e:
+        return {
+            "summary": f"Failed to generate standup summary: {str(e)}",
+            "status": "error",
+        }
+    finally:
+        if temp_cleanup_path and os.path.exists(temp_cleanup_path):
+            parent = os.path.dirname(temp_cleanup_path)
+            shutil.rmtree(parent, ignore_errors=True)
 
 
-# POST endpoint for local codebase RAG indexing
-@app.post(
-    "/api/index_codebase",
-    response_model=dict,
-    dependencies=[Depends(require_api_key)],
+# Mount static files directory (resolved from __file__ so the app starts
+# regardless of the CWD uvicorn was launched from).
+app.mount(
+    "/static",
+    StaticFiles(directory=str(_BASE_DIR / "static")),
+    name="static",
 )
-def index_codebase_endpoint(request: RepoPathRequest):
-    """
-    Index a repository's source files into the local ChromaDB vector store.
-
-    Accepts JSON: {"repo_path": str}
-
-    Response shape:
-        {"indexed_files": int, "total_chunks": int, "status": "completed"}
-        or {"status": "error", "message": str}.
-
-    Note: intentionally a sync `def` endpoint so model loading and
-    embedding run in FastAPI's threadpool rather than blocking the loop.
-    """
-    if not request.repo_path or not request.repo_path.strip():
-        raise HTTPException(
-            status_code=400,
-            detail="Repository path cannot be empty.",
-        )
-    return index_codebase(request.repo_path.strip())
-
-
-# Mount static files directory
-app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
 # Root endpoint serves the main HTML page
 @app.get("/")
 async def read_root():
     """Serve the main HTML page."""
-    return FileResponse("static/index.html")
+    return FileResponse(_BASE_DIR / "static" / "index.html")
 
 
 # Health check endpoint
@@ -276,7 +289,6 @@ async def get_info():
         "endpoints": {
             "analyze": "/api/analyze",
             "summarize": "/api/summarize",
-            "index_codebase": "/api/index_codebase",
             "health": "/health",
             "info": "/info",
             "docs": "/docs",
