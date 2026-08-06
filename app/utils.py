@@ -159,3 +159,33 @@ def validate_git_repo(path: str) -> tuple[bool, str]:
         return (False, f"Error checking Git repository: {str(e)}")
 
     return (True, "Valid")
+
+
+def get_latest_commit_hash(repo_path: str) -> str:
+    """
+    Get the full SHA-1 hash of the latest commit (HEAD) in a repository.
+
+    Args:
+        repo_path (str): Path to the local Git repository
+
+    Returns:
+        str: The stripped commit hash, or an empty string if the
+            repository has no commits yet or git fails.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "HEAD"],
+            cwd=repo_path,
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+    except FileNotFoundError:
+        pass
+    except subprocess.TimeoutExpired:
+        pass
+    except Exception:
+        pass
+    return ""

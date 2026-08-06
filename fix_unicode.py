@@ -1,7 +1,10 @@
 """Fix index.html to use actual unicode characters instead of literal escape sequences."""
 import re
+from pathlib import Path
 
-path = r"E:\Projects\RepoLens\static\index.html"
+# Resolved relative to this script's location instead of a hardcoded,
+# developer-machine-specific Windows path, so this works on any machine/OS.
+path = Path(__file__).resolve().parent / "static" / "index.html"
 
 with open(path, "r", encoding="utf-8") as f:
     content = f.read()

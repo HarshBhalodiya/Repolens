@@ -8,9 +8,17 @@ using subprocess and Pandas for data processing.
 import re
 import subprocess
 from collections import Counter
-from io import StringIO
 
 import pandas as pd
+
+# ASCII Unit Separator (0x1F). Effectively never appears in commit metadata,
+# unlike "|" which regularly shows up in commit subjects (e.g. conventional
+# commit scopes, piped shell examples, markdown tables). Using it as the
+# field delimiter means we can split on a fixed byte instead of running the
+# output through a CSV parser, which sidesteps quoting/escaping edge cases
+# (an unbalanced `"` in a commit message used to corrupt column alignment)
+# entirely.
+FIELD_SEP = "\x1f"
 
 
 def extract_repo_metrics(repo_path: str) -> dict:
@@ -39,7 +47,7 @@ def extract_repo_metrics(repo_path: str) -> dict:
         result = subprocess.run(
             [
                 "git", "log",
-                "--pretty=format:%h|%an|%ad|%s",
+                f"--pretty=format:%h{FIELD_SEP}%an{FIELD_SEP}%ae{FIELD_SEP}%ad{FIELD_SEP}%s",
                 "--date=iso",
             ],
             cwd=repo_path,
@@ -61,18 +69,38 @@ def extract_repo_metrics(repo_path: str) -> dict:
     if not stdout.strip():
         return _empty_metrics()
 
-    # --- Pandas Processing ---
-    try:
-        # Load text stream into DataFrame
-        df = pd.read_csv(
-            StringIO(stdout),
-            sep="|",
-            header=None,
-            names=["hash", "author", "date", "subject"],
-            dtype={"hash": str, "author": str, "subject": str},
+    # --- Manual Row Parsing ---
+    # Split on FIELD_SEP ourselves rather than pd.read_csv: commit subjects
+    # are free-form text and must never be mistaken for CSV syntax (quotes,
+    # embedded delimiters, etc). maxsplit=4 keeps the subject intact even if
+    # it happens to contain FIELD_SEP-adjacent bytes.
+    rows = []
+    for line in stdout.split("\n"):
+        if not line:
+            continue
+        parts = line.split(FIELD_SEP, 4)
+        if len(parts) != 5:
+            # Malformed line (should not happen, but skip rather than crash
+            # the whole analysis over a single bad row).
+            continue
+        commit_hash, author, author_email, date, subject = parts
+        rows.append(
+            {
+                "hash": commit_hash,
+                "author": author,
+                "author_email": author_email,
+                "date": date,
+                # Keep empty subjects as "" (not NaN) so they still count
+                # toward total_commits and don't silently disappear from
+                # avg_message_length.
+                "subject": subject,
+            }
         )
-    except Exception as e:
-        return _empty_metrics(f"Error parsing git log output: {str(e)}")
+
+    if not rows:
+        return _empty_metrics()
+
+    df = pd.DataFrame(rows)
 
     # Drop any rows with missing critical data
     df = df.dropna(subset=["date", "author"])
@@ -81,7 +109,11 @@ def extract_repo_metrics(repo_path: str) -> dict:
         return _empty_metrics()
 
     # Parse date column
-    df["date"] = pd.to_datetime(df["date"], utc=True)
+    df["date"] = pd.to_datetime(df["date"], utc=True, errors="coerce")
+    df = df.dropna(subset=["date"])
+
+    if df.empty:
+        return _empty_metrics()
 
     # Extract hour from commit date (UTC)
     df["hour"] = df["date"].dt.hour
@@ -97,7 +129,14 @@ def extract_repo_metrics(repo_path: str) -> dict:
 
     # --- Compute Summary ---
     total_commits = len(df)
-    total_authors = df["author"].nunique()
+    # Identity = author email when present (a person's display name can
+    # change across commits, e.g. "J. Smith" vs "Jane Smith"; the email is
+    # the far more reliable, git-standard identity key). Fall back to name
+    # for the rare commit with no configured email.
+    identity_key = df["author_email"].where(
+        df["author_email"].astype(bool), df["author"]
+    )
+    total_authors = identity_key.nunique()
     first_commit = df["date"].min()
     last_commit = df["date"].max()
 
@@ -106,19 +145,26 @@ def extract_repo_metrics(repo_path: str) -> dict:
     last_commit_str = last_commit.isoformat() if pd.notna(last_commit) else None
 
     # --- Compute Top Authors ---
-    # value_counts() returns Series(index=author_name, values=count)
-    # reset_index() gives DataFrame columns=["author", "count"]
+    # Group by identity (email) so the same person under slightly different
+    # display names is counted once, then show their most-used display name.
+    df["_identity"] = identity_key
+    grouped = df.groupby("_identity")
     author_counts = (
-        df["author"]
-        .value_counts()
-        .reset_index()
-        .rename(columns={"count": "commits"})
+        grouped.size()
+        .reset_index(name="commits")
+        .sort_values("commits", ascending=False)
         .head(20)
     )
-    top_authors = author_counts.to_dict(orient="records")
+    # Attach the most frequently used display name for each identity
+    display_names = (
+        df.groupby("_identity")["author"]
+        .agg(lambda s: s.value_counts().idxmax())
+    )
+    author_counts["author"] = author_counts["_identity"].map(display_names)
+    top_authors = author_counts[["author", "commits"]].to_dict(orient="records")
 
     # --- Compute Average Message Length ---
-    avg_message_length = round(float(df["subject"].str.len().mean()), 1)
+    avg_message_length = round(float(df["subject"].fillna("").str.len().mean()), 1)
 
     # --- Code Churn: Parse insertions/deletions from --shortstat ---
     code_churn = _parse_code_churn(repo_path)
@@ -146,12 +192,14 @@ def _empty_metrics(reason: str = "") -> dict:
     Return an empty metrics payload, typically for repositories with no commits.
 
     Args:
-        reason (str): Optional reason string (not included in output)
+        reason (str): Optional reason string. When provided it is included
+            as the `_error` key so callers can surface why analysis failed
+            instead of showing a silently blank dashboard.
 
     Returns:
         dict: Skeleton metrics structure with all zeros/empty values
     """
-    return {
+    metrics = {
         "summary": {
             "total_commits": 0,
             "total_authors": 0,
@@ -164,6 +212,9 @@ def _empty_metrics(reason: str = "") -> dict:
         "hotspots": [],
         "avg_message_length": 0,
     }
+    if reason:
+        metrics["_error"] = reason
+    return metrics
 
 
 def _parse_code_churn(repo_path: str) -> list[dict]:
@@ -172,6 +223,12 @@ def _parse_code_churn(repo_path: str) -> list[dict]:
 
     Groups insertions and deletions by day and returns a time-ordered
     list of daily aggregates.
+
+    Note: by default `git log` does not print a diffstat for merge commits
+    (it only shows the combined diff with `-m`/`-c`), so merge commits
+    contribute 0 insertions/deletions here even though they are counted in
+    `summary.total_commits`. This matches standard `git log` / `git show`
+    behavior and is intentional, not a parsing bug.
 
     Args:
         repo_path (str): Path to the local Git repository
@@ -184,7 +241,7 @@ def _parse_code_churn(repo_path: str) -> list[dict]:
             [
                 "git", "log",
                 "--shortstat",
-                "--pretty=format:COMMIT:%h|%an|%ad|%s",
+                f"--pretty=format:COMMIT:%h{FIELD_SEP}%an{FIELD_SEP}%ad{FIELD_SEP}%s",
                 "--date=iso",
             ],
             cwd=repo_path,
@@ -209,7 +266,7 @@ def _parse_code_churn(repo_path: str) -> list[dict]:
         line = line.strip()
         if line.startswith("COMMIT:"):
             # Extract date from the commit header
-            parts = line.split("|")
+            parts = line[len("COMMIT:"):].split(FIELD_SEP)
             if len(parts) >= 3:
                 try:
                     dt = pd.to_datetime(parts[2], utc=True)

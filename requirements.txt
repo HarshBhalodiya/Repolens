@@ -1,4 +1,11 @@
-fastapi
-uvicorn
-pandas
+fastapi>=0.100,<1.0
+uvicorn>=0.23,<1.0
+pandas>=2.0,<3.0
+python-dotenv>=1.0,<2.0
+httpx>=0.24,<1.0
 # Run with: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+#
+# Versions are pinned to minimum-compatible ranges rather than left
+# unbounded, so a future major release of any dependency can't silently
+# change behavior (e.g. column-naming changes in pandas groupby/aggregate
+# output) or break the app without a visible version-resolution failure.

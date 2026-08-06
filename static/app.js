@@ -8,14 +8,19 @@
 // ============================
 const repoPathInput = document.getElementById('repo-path');
 const btnAnalyze = document.getElementById('btn-analyze');
+const btnForceRefresh = document.getElementById('btn-force-refresh');
 const btnText = btnAnalyze.querySelector('.btn-text');
 const btnSpinner = btnAnalyze.querySelector('.btn-spinner');
+const btnRefreshText = btnForceRefresh.querySelector('.btn-text');
+const btnRefreshSpinner = btnForceRefresh.querySelector('.btn-spinner');
 const loadingSpinner = document.getElementById('loading-spinner');
 const loadingText = document.getElementById('loading-text');
 const errorBanner = document.getElementById('error-banner');
 const errorMessage = document.getElementById('error-message');
 const btnDismissError = document.getElementById('btn-dismiss-error');
 const dashboard = document.getElementById('dashboard');
+const cacheBadge = document.getElementById('cache-badge');
+const cacheBadgeTime = document.getElementById('cache-badge-time');
 
 // Summary card values
 const valueTotalCommits = document.getElementById('value-total-commits');
@@ -74,7 +79,10 @@ function hideError() {
 function setLoading(loading, message) {
     setVisible(btnText, !loading);
     setVisible(btnSpinner, loading);
+    setVisible(btnRefreshText, !loading);
+    setVisible(btnRefreshSpinner, loading);
     btnAnalyze.disabled = loading;
+    btnForceRefresh.disabled = loading;
     repoPathInput.disabled = loading;
     setVisible(loadingSpinner, loading);
     if (loading && message && loadingText) {
@@ -469,9 +477,28 @@ function populateDashboard(data) {
 // ============================
 
 /**
- * Send analysis request to the backend.
+ * Show the cache-hit badge with the retrieval time.
+ * @param {number} elapsedMs - Round-trip time in milliseconds
  */
-async function handleAnalyzeClick() {
+function showCacheBadge(elapsedMs) {
+    if (cacheBadgeTime) {
+        cacheBadgeTime.textContent = String(elapsedMs);
+    }
+    setVisible(cacheBadge, true);
+}
+
+/**
+ * Hide the cache-hit badge.
+ */
+function hideCacheBadge() {
+    setVisible(cacheBadge, false);
+}
+
+/**
+ * Send analysis request to the backend.
+ * @param {boolean} [forceRefresh] - When true, bypass the cache
+ */
+async function handleAnalyzeClick(forceRefresh) {
     const repoPath = repoPathInput.value;
 
     // Validate input
@@ -482,13 +509,19 @@ async function handleAnalyzeClick() {
 
     // Reset UI
     hideError();
+    hideCacheBadge();
     setVisible(dashboard, false);
 
     // Choose loading message based on input type
-    const loadingMsg = isGitHubUrl(repoPath)
+    let loadingMsg = isGitHubUrl(repoPath)
         ? 'Cloning remote repository...'
         : 'Processing Git history...';
+    if (forceRefresh) {
+        loadingMsg = 'Re-analyzing repository (bypassing cache)...';
+    }
     setLoading(true, loadingMsg);
+
+    const startTime = performance.now();
 
     try {
         const response = await fetch('/api/analyze', {
@@ -496,7 +529,10 @@ async function handleAnalyzeClick() {
             headers: {
                 'Content-Type': 'application/json',
             },
-            body: JSON.stringify({ repo_path: repoPath.trim() }),
+            body: JSON.stringify({
+                repo_path: repoPath.trim(),
+                force_refresh: Boolean(forceRefresh),
+            }),
         });
 
         if (!response.ok) {
@@ -513,8 +549,25 @@ async function handleAnalyzeClick() {
             throw new Error(detail);
         }
 
-        const data = await response.json();
-        populateDashboard(data);
+        const payload = await response.json();
+        const elapsedMs = Math.round(performance.now() - startTime);
+
+        // Serve cached payloads instantly and flag them with a badge
+        if (payload.cached) {
+            showCacheBadge(elapsedMs);
+        } else {
+            hideCacheBadge();
+        }
+
+        // Surface extraction failures (e.g. git log timeout) instead of
+        // rendering a blank dashboard with no explanation
+        if (payload.data && payload.data._error) {
+            showError(`Analysis did not complete: ${payload.data._error}`);
+            setVisible(dashboard, false);
+            return;
+        }
+
+        populateDashboard(payload.data || {});
 
     } catch (error) {
         // Show error in the banner
@@ -531,12 +584,15 @@ async function handleAnalyzeClick() {
 // ============================
 
 // Analyze button click
-btnAnalyze.addEventListener('click', handleAnalyzeClick);
+btnAnalyze.addEventListener('click', () => handleAnalyzeClick(false));
+
+// Re-analyze (force refresh) button click - bypasses the cache
+btnForceRefresh.addEventListener('click', () => handleAnalyzeClick(true));
 
 // Enter key in input field
 repoPathInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !btnAnalyze.disabled) {
-        handleAnalyzeClick();
+        handleAnalyzeClick(false);
     }
 });
 

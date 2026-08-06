@@ -1,0 +1,15 @@
+# Environment secrets - never commit
+.env
+
+# RepoLens local cache fallback
+.repolens_cache.json
+.repolens_cache.json.tmp
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Temp test scripts
+_tmp_*.py
