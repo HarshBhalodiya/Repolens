@@ -15,8 +15,9 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
-from .ai_engine import generate_standup_summary
+from .ai_engine import answer_codebase_question, generate_standup_summary
 from .db_client import get_cached_analysis, save_analysis_cache
+from .dependency_parser import build_dependency_graph
 from .git_parser import extract_repo_metrics
 from .utils import (
     clone_github_repo,
@@ -94,6 +95,32 @@ class AnalysisRequest(BaseModel):
 # Pydantic model for AI feature requests (standup summary / codebase index)
 class RepoPathRequest(BaseModel):
     repo_path: str
+
+
+# Pydantic model for the RAG codebase chat request
+class ChatRequest(BaseModel):
+    repo_path: str
+    query: str
+
+
+def _resolve_repo_path(repo_input: str) -> tuple:
+    """
+    Resolve a repo input to a local path, cloning remote URLs on demand.
+
+    Returns (real_path, cleanup_dir) where cleanup_dir is the temporary
+    clone directory to remove afterwards, or None for local paths.
+    """
+    if is_github_url(repo_input):
+        cloned_path, _ = clone_github_repo(repo_input)
+        return cloned_path, cloned_path
+    return repo_input, None
+
+
+def _cleanup_temp_repo(temp_path: str | None) -> None:
+    """Remove a temporary cloned repo directory (no-op for local paths)."""
+    if temp_path and os.path.exists(temp_path):
+        parent = os.path.dirname(temp_path)
+        shutil.rmtree(parent, ignore_errors=True)
 
 
 def _is_valid_cached_payload(payload: dict) -> bool:
@@ -235,13 +262,7 @@ def summarize_standup(request: RepoPathRequest):
     repo_input = request.repo_path.strip()
     temp_cleanup_path = None
     try:
-        if is_github_url(repo_input):
-            cloned_path, _ = clone_github_repo(repo_input)
-            temp_cleanup_path = cloned_path
-            real_path = cloned_path
-        else:
-            real_path = repo_input
-
+        real_path, temp_cleanup_path = _resolve_repo_path(repo_input)
         return generate_standup_summary(real_path)
     except Exception as e:
         return {
@@ -249,9 +270,88 @@ def summarize_standup(request: RepoPathRequest):
             "status": "error",
         }
     finally:
-        if temp_cleanup_path and os.path.exists(temp_cleanup_path):
-            parent = os.path.dirname(temp_cleanup_path)
-            shutil.rmtree(parent, ignore_errors=True)
+        _cleanup_temp_repo(temp_cleanup_path)
+
+
+# POST endpoint for RAG codebase chat
+@app.post(
+    "/api/chat", response_model=dict, dependencies=[Depends(require_api_key)]
+)
+def chat_with_codebase(request: ChatRequest):
+    """
+    Answer a question about an indexed codebase using RAG + local Ollama.
+
+    Accepts JSON: {"repo_path": str, "query": str}
+
+    Response shape:
+        {"answer": str, "sources": [str], "status": "success" | "error"}
+
+    Note: intentionally a sync `def` endpoint so the (CPU/IO-heavy)
+    embedding retrieval + LLM call run in FastAPI's threadpool.
+    """
+    if not request.repo_path or not request.repo_path.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Repository path cannot be empty.",
+        )
+    if not request.query or not request.query.strip():
+        raise HTTPException(status_code=400, detail="Query cannot be empty.")
+
+    repo_input = request.repo_path.strip()
+    temp_cleanup_path = None
+    try:
+        real_path, temp_cleanup_path = _resolve_repo_path(repo_input)
+        return answer_codebase_question(real_path, request.query.strip())
+    except Exception as e:
+        return {
+            "answer": f"Failed to answer the question: {str(e)}",
+            "sources": [],
+            "status": "error",
+        }
+    finally:
+        _cleanup_temp_repo(temp_cleanup_path)
+
+
+# POST endpoint for the Tree-sitter dependency graph
+@app.post(
+    "/api/dependencies",
+    response_model=dict,
+    dependencies=[Depends(require_api_key)],
+)
+def dependency_graph(request: RepoPathRequest):
+    """
+    Build a file-level dependency knowledge graph for a repository.
+
+    Accepts JSON: {"repo_path": str}
+
+    Response shape:
+        {"nodes": [{"id", "label"}], "edges": [{"source", "target"}],
+         "status": "completed"}
+        or {"status": "error", "message": str, "nodes": [], "edges": []}.
+
+    Note: intentionally a sync `def` endpoint so the (CPU-heavy)
+    Tree-sitter parsing runs in FastAPI's threadpool.
+    """
+    if not request.repo_path or not request.repo_path.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Repository path cannot be empty.",
+        )
+
+    repo_input = request.repo_path.strip()
+    temp_cleanup_path = None
+    try:
+        real_path, temp_cleanup_path = _resolve_repo_path(repo_input)
+        return build_dependency_graph(real_path)
+    except Exception as e:
+        return {
+            "status": "error",
+            "message": f"Failed to build dependency graph: {str(e)}",
+            "nodes": [],
+            "edges": [],
+        }
+    finally:
+        _cleanup_temp_repo(temp_cleanup_path)
 
 
 # Mount static files directory (resolved from __file__ so the app starts
@@ -289,6 +389,8 @@ async def get_info():
         "endpoints": {
             "analyze": "/api/analyze",
             "summarize": "/api/summarize",
+            "chat": "/api/chat",
+            "dependencies": "/api/dependencies",
             "health": "/health",
             "info": "/info",
             "docs": "/docs",

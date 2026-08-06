@@ -230,6 +230,10 @@ def _parse_code_churn(repo_path: str) -> list[dict]:
     `summary.total_commits`. This matches standard `git log` / `git show`
     behavior and is intentional, not a parsing bug.
 
+    Binary file changes also contribute 0 insertions/deletions (git prints
+    no `N insertions`/`N deletions` tokens for them), so churn statistics
+    already exclude binary content without extra filtering.
+
     Args:
         repo_path (str): Path to the local Git repository
 
@@ -319,8 +323,9 @@ def _parse_file_hotspots(repo_path: str) -> list[dict]:
     """
     Parse file hotspots by counting how many commits touched each file.
 
-    Uses `git log --name-only` to list files changed per commit, then
-    counts frequencies and returns the top 10.
+    Uses `git log --numstat` to list files changed per commit, then
+    counts frequencies and returns the top 10. Binary file changes are
+    excluded (git prints `-\t-` instead of a numeric diff for them).
 
     Args:
         repo_path (str): Path to the local Git repository
@@ -330,7 +335,7 @@ def _parse_file_hotspots(repo_path: str) -> list[dict]:
     """
     try:
         result = subprocess.run(
-            ["git", "log", "--name-only", "--pretty=format:"],
+            ["git", "log", "--numstat", "--pretty=format:"],
             cwd=repo_path,
             capture_output=True,
             text=True,
@@ -361,14 +366,24 @@ def _parse_file_hotspots(repo_path: str) -> list[dict]:
 
     counter: Counter = Counter()
 
+    # --numstat emits one line per changed file: "added\tdeleted\tpath".
+    # Binary files appear as "-\t-\tpath" and are skipped so binary assets
+    # (images, archives, compiled artifacts) never pollute the hotspot
+    # ranking with noise.
     for line in output.splitlines():
         line = line.strip()
         if not line:
             continue
-        # Skip noise files
-        if line in noise_patterns:
+        parts = line.split("\t")
+        if len(parts) != 3:
             continue
-        counter[line] += 1
+        added, deleted, file_path = parts
+        if added == "-" and deleted == "-":
+            continue  # binary file change — excluded from hotspot stats
+        # Skip noise files
+        if file_path in noise_patterns:
+            continue
+        counter[file_path] += 1
 
     # Get top 10 most frequently changed files
     top_10 = counter.most_common(10)

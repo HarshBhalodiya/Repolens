@@ -165,6 +165,12 @@ def get_latest_commit_hash(repo_path: str) -> str:
     """
     Get the full SHA-1 hash of the latest commit (HEAD) in a repository.
 
+    `git rev-parse HEAD` resolves the commit that HEAD points at regardless
+    of branch state — including a detached HEAD (a bare commit checked out
+    directly) — so the returned cache key stays correct in both cases.
+    For a repository with no commits, rev-parse fails (exit code != 0) and
+    we return "" rather than raising.
+
     Args:
         repo_path (str): Path to the local Git repository
 

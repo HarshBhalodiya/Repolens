@@ -18,7 +18,7 @@ const loadingText = document.getElementById('loading-text');
 const errorBanner = document.getElementById('error-banner');
 const errorMessage = document.getElementById('error-message');
 const btnDismissError = document.getElementById('btn-dismiss-error');
-const dashboard = document.getElementById('dashboard');
+const dashboard = document.getElementById('tab-dashboard');
 const cacheBadge = document.getElementById('cache-badge');
 const cacheBadgeTime = document.getElementById('cache-badge-time');
 
@@ -41,6 +41,18 @@ const btnGenerateSummary = document.getElementById('btn-generate-summary');
 const standupContent = document.getElementById('standup-content');
 const btnGenerateText = btnGenerateSummary.querySelector('.btn-text');
 const btnGenerateSpinner = btnGenerateSummary.querySelector('.btn-spinner');
+
+
+
+// RAG codebase chat
+const chatHistory = document.getElementById('chat-history');
+const chatInput = document.getElementById('chat-input');
+const btnSendChat = document.getElementById('btn-send-chat');
+const btnSendText = btnSendChat.querySelector('.btn-text');
+const btnSendSpinner = btnSendChat.querySelector('.btn-spinner');
+
+// Dependency graph
+const graphStatus = document.getElementById('graph-status');
 
 // ============================
 // Global State
@@ -610,6 +622,7 @@ async function handleAnalyzeClick(forceRefresh) {
         // below) rather than a 200 payload carrying `_error`, so no `_error`
         // check is needed here anymore.
         populateDashboard(payload.data || {});
+        loadDependencyGraph();
 
     } catch (error) {
         // Show error in the banner
@@ -750,6 +763,345 @@ async function handleGenerateSummaryClick() {
 
 
 
+/** Last rendered graph payload. */
+let graphData = null;
+
+// ============================
+// RAG Codebase Chat
+// ============================
+
+/**
+ * Minimal markdown-ish formatter for AI responses.
+ *
+ * Splits on ``` fences first: fenced blocks become <pre><code>, everything
+ * else gets inline `code` highlighting and newline-><br> conversion. All
+ * content is HTML-escaped before formatting, so markup can never execute.
+ */
+function formatChatMessage(text) {
+    const escaped = escapeHtml(text);
+    return escaped.split(/```/).map((part, index) => {
+        if (index % 2 === 1) {
+            // Inside a fenced code block: no <br> mangling, preserve as-is.
+            return `<pre class="chat-code">${part.replace(/^\n/, '')}</pre>`;
+        }
+        return part
+            .replace(/`([^`\n]+)`/g, (_, code) => `<code class="chat-inline-code">${code}</code>`)
+            .replace(/\n/g, '<br>');
+    }).join('');
+}
+
+/**
+ * Append a message bubble to the chat history and scroll it into view.
+ * @param {string} role - 'user' or 'ai'
+ * @param {string} text - Message body (escaped internally)
+ */
+function appendChatMessage(role, text) {
+    const div = document.createElement('div');
+    div.className = `chat-msg ${role}`;
+    if (role === 'user') {
+        div.innerHTML = `<div class="chat-bubble user-bubble">${escapeHtml(text)}</div>`;
+    } else {
+        div.innerHTML = `<div class="chat-bubble ai-bubble">${formatChatMessage(text)}</div>`;
+    }
+    chatHistory.appendChild(div);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+/** Show an animated typing indicator while waiting on Ollama. */
+function showTypingIndicator() {
+    const div = document.createElement('div');
+    div.className = 'chat-msg ai';
+    div.id = 'typing-indicator';
+    div.innerHTML = `
+        <div class="chat-bubble ai-bubble typing">
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+            <span class="typing-dot"></span>
+        </div>
+    `;
+    chatHistory.appendChild(div);
+    chatHistory.scrollTop = chatHistory.scrollHeight;
+}
+
+/** Remove the typing indicator once the response arrives. */
+function removeTypingIndicator() {
+    const el = document.getElementById('typing-indicator');
+    if (el) el.remove();
+}
+
+/**
+ * Send the current chat input to /api/chat and render the response.
+ */
+async function handleSendChatClick() {
+    const query = chatInput.value.trim();
+    if (!query) return;
+
+    appendChatMessage('user', query);
+    chatInput.value = '';
+    showTypingIndicator();
+
+    setVisible(btnSendText, false);
+    setVisible(btnSendSpinner, true);
+    btnSendChat.disabled = true;
+
+    try {
+        const response = await fetch('/api/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                repo_path: repoPathInput.value.trim(),
+                query: query,
+            }),
+        });
+
+        if (!response.ok) {
+            let detail = `Request failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) detail = errorData.detail;
+            } catch (_) { /* use default detail */ }
+            throw new Error(detail);
+        }
+
+        const payload = await response.json();
+        removeTypingIndicator();
+        appendChatMessage('ai', payload.answer || '(no answer returned)');
+
+        // Surface which files the answer was grounded on as chips.
+        if (payload.sources && payload.sources.length) {
+            const chips = document.createElement('div');
+            chips.className = 'source-chips';
+            chips.innerHTML = payload.sources
+                .map(source => `<span class="source-chip">${escapeHtml(source)}</span>`)
+                .join('');
+            chatHistory.appendChild(chips);
+        }
+    } catch (error) {
+        removeTypingIndicator();
+        appendChatMessage('ai', error.message || 'An unexpected error occurred.');
+    } finally {
+        setVisible(btnSendText, true);
+        setVisible(btnSendSpinner, false);
+        btnSendChat.disabled = false;
+        chatInput.focus();
+    }
+}
+
+// ============================
+// Dependency Graph (D3.js)
+// ============================
+
+/**
+ * Set the status line above the graph SVG.
+ * @param {string} message - Status text
+ * @param {string} state - 'active' | 'success' | 'error' | 'info'
+ */
+function setGraphStatus(message, state) {
+    if (!graphStatus) return;
+    graphStatus.textContent = message;
+    graphStatus.className = `graph-status ${state}`;
+    setVisible(graphStatus, true);
+}
+
+/** Remove all children from the graph SVG. */
+function clearGraph() {
+    const svgEl = document.getElementById('dependency-svg');
+    if (!svgEl) return;
+    while (svgEl.firstChild) svgEl.removeChild(svgEl.firstChild);
+}
+
+/**
+ * Render a force-directed dependency graph with D3.js v7.
+ * @param {{nodes: Array<{id: string, label: string}>, edges: Array<{source: string, target: string}>}} data
+ */
+function renderDependencyGraph(data) {
+    if (typeof d3 === 'undefined') {
+        setGraphStatus('D3.js failed to load (CDN unreachable).', 'error');
+        return;
+    }
+
+    const svgEl = document.getElementById('dependency-svg');
+    if (!svgEl) return;
+
+    const svg = d3.select(svgEl);
+    svg.selectAll('*').remove();
+
+    const nodes = (data.nodes || []).map(n => ({ id: n.id, label: n.label }));
+    const edges = (data.edges || []).map(e => ({ source: e.source, target: e.target }));
+
+    if (!nodes.length) {
+        setGraphStatus('No files to display.', 'info');
+        return;
+    }
+
+    const width = svgEl.clientWidth || 800;
+    const height = svgEl.clientHeight || 400;
+
+    // Degree (number of connections) drives node size for readability.
+    const degree = new Map();
+    edges.forEach(e => {
+        degree.set(e.source, (degree.get(e.source) || 0) + 1);
+        degree.set(e.target, (degree.get(e.target) || 0) + 1);
+    });
+    const nodeRadius = d => Math.min(4 + (degree.get(d.id) || 0) * 1.2, 14);
+
+    // Root <g> that the zoom transform applies to.
+    const g = svg.append('g');
+
+    const zoom = d3.zoom()
+        .scaleExtent([0.2, 4])
+        .on('zoom', (event) => g.attr('transform', event.transform));
+    svg.call(zoom);
+
+    const link = g.append('g')
+        .attr('class', 'graph-links')
+        .selectAll('line')
+        .data(edges)
+        .join('line')
+        .attr('stroke', '#30363D')
+        .attr('stroke-width', 1);
+
+    const node = g.append('g')
+        .attr('class', 'graph-nodes')
+        .selectAll('g')
+        .data(nodes)
+        .join('g');
+
+    node.append('circle')
+        .attr('r', nodeRadius)
+        .attr('fill', '#58A6FF')
+        .attr('fill-opacity', 0.85)
+        .attr('stroke', '#79C0FF')
+        .attr('stroke-width', 1);
+
+    node.append('title').text(d => d.id);  // native hover tooltip
+
+    node.append('text')
+        .attr('class', 'graph-label')
+        .attr('dy', -12)
+        .attr('text-anchor', 'middle')
+        .text(d => d.label);
+
+    const simulation = d3.forceSimulation(nodes)
+        .force('link', d3.forceLink(edges).id(d => d.id).distance(45).strength(0.8))
+        .force('charge', d3.forceManyBody().strength(-100))
+        .force('x', d3.forceX(width / 2).strength(0.08))
+        .force('y', d3.forceY(height / 2).strength(0.08))
+        .force('collision', d3.forceCollide().radius(d => nodeRadius(d) + 8))
+        .on('tick', () => {
+            link
+                .attr('x1', d => d.source.x).attr('y1', d => d.source.y)
+                .attr('x2', d => d.target.x).attr('y2', d => d.target.y);
+            node.attr('transform', d => `translate(${d.x},${d.y})`);
+        });
+
+    // Drag behavior: pin the dragged node, stop the zoom gesture hijacking it.
+    // Root cause note: d3.drag reports pointer coordinates in the SVG's
+    // coordinate space, but simulation positions (d.x/d.y) live inside the
+    // zoom-transformed <g>. Converting with the inverse zoom transform keeps
+    // the node glued to the cursor at any zoom level (without it, dragging
+    // while zoomed makes the node jump to an unrelated position).
+    node.call(d3.drag()
+        .on('start', (event, d) => {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            const t = d3.zoomTransform(svgEl);
+            d.fx = (event.x - t.x) / t.k;
+            d.fy = (event.y - t.y) / t.k;
+            event.sourceEvent.stopPropagation();
+        })
+        .on('drag', (event, d) => {
+            const t = d3.zoomTransform(svgEl);
+            d.fx = (event.x - t.x) / t.k;
+            d.fy = (event.y - t.y) / t.k;
+        })
+        .on('end', (event, d) => {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }));
+
+    // Fade unrelated nodes/links on hover so dense graphs stay readable.
+    function fadeNeighbors(hovered) {
+        const connected = new Set(edges
+            .filter(e => e.source.id === hovered.id || e.target.id === hovered.id)
+            .flatMap(e => [e.source.id, e.target.id]));
+        connected.add(hovered.id);
+        node.select('circle')
+            .attr('fill-opacity', n => connected.has(n.id) ? 0.95 : 0.12);
+        node.select('text')
+            .attr('opacity', n => connected.has(n.id) ? 1 : 0.2);
+        link.attr('stroke-opacity', e =>
+            e.source.id === hovered.id || e.target.id === hovered.id ? 1 : 0.06);
+    }
+
+    node.on('mouseover', (event, d) => fadeNeighbors(d))
+        .on('mouseout', () => {
+            node.select('circle').attr('fill-opacity', 0.85);
+            node.select('text').attr('opacity', 1);
+            link.attr('stroke-opacity', 1);
+        });
+}
+
+/**
+ * Request the dependency graph from the backend and render it automatically.
+ */
+async function loadDependencyGraph() {
+    const repoPath = repoPathInput.value;
+    if (!repoPath || !repoPath.trim()) {
+        return;
+    }
+
+    setGraphStatus('Parsing dependencies with Tree-sitter...', 'active');
+
+    try {
+        const response = await fetch('/api/dependencies', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repo_path: repoPath.trim() }),
+        });
+
+        if (!response.ok) {
+            let detail = `Request failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) detail = errorData.detail;
+            } catch (_) { /* use default detail */ }
+            throw new Error(detail);
+        }
+
+        const payload = await response.json();
+
+        if (payload.status === 'error') {
+            clearGraph();
+            graphData = null;
+            setGraphStatus(payload.message || 'Failed to build the dependency graph.', 'error');
+            return;
+        }
+
+        if (!payload.nodes || payload.nodes.length === 0) {
+            clearGraph();
+            graphData = null;
+            setGraphStatus(payload.message || 'No files to display.', 'info');
+            return;
+        }
+
+        graphData = payload;
+        renderDependencyGraph(payload);
+        setGraphStatus(
+            `Graph: ${payload.nodes.length} files, ${payload.edges.length} dependencies`,
+            'success'
+        );
+    } catch (error) {
+        clearGraph();
+        graphData = null;
+        setGraphStatus(error.message || 'Failed to build the dependency graph.', 'error');
+    }
+}
+
 // ============================
 // Event Listeners
 // ============================
@@ -772,7 +1124,13 @@ btnDismissError.addEventListener('click', hideError);
 
 // AI features
 btnGenerateSummary.addEventListener('click', handleGenerateSummaryClick);
-
+// RAG codebase chat
+btnSendChat.addEventListener('click', handleSendChatClick);
+chatInput.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' && !btnSendChat.disabled) {
+        handleSendChatClick();
+    }
+});
 // ============================
 // Initialization
 // ============================

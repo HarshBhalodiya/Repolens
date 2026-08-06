@@ -8,6 +8,8 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔍</text></svg>">
     <!-- Chart.js from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- D3.js v7 from CDN (dependency graph) -->
+    <script src="https://cdn.jsdelivr.net/npm/d3@7"></script>
 </head>
 <body>
     <div class="container">
@@ -69,8 +71,8 @@
                 </div>
             </section>
 
-            <!-- Dashboard Content Area -->
-            <div id="dashboard" class="dashboard hidden">
+            <!-- Tab: Analytics Dashboard (existing content) -->
+            <div id="tab-dashboard" class="dashboard hidden">
                 <!-- Cache Hit Badge -->
                 <div id="cache-badge" class="cache-badge hidden" role="status">
                     <span class="cache-badge-icon">&#9889;</span>
@@ -203,9 +205,54 @@
                                 <div class="skeleton-line skeleton-line-short"></div>
                             </div> -->
                             <p class="standup-caption">Connecting to Ollama...</p>
-                        </div>
-                    </section>
+                                 </section>
+                </section>
 
+                <!-- Section: Dependency Graph -->
+                <section id="tab-dependencies" class="graph-section">
+                    <div class="card graph-card">
+                        <div class="graph-header">
+                            <div class="graph-title">
+                                <h2 class="card-title">🕸️ Dependency Graph</h2>
+                                <p class="card-description">
+                                    File-level import/require dependencies parsed with
+                                    Tree-sitter. Drag nodes, scroll to zoom.
+                                </p>
+                            </div>
+                        </div>
+                        <div id="graph-status" class="graph-status hidden"></div>
+                        <div class="graph-wrapper">
+                            <svg id="dependency-svg" width="100%" height="400" role="img" aria-label="Dependency graph"></svg>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Section: AI Codebase Chat -->
+                <section id="tab-chat" class="chat-section">
+                    <div class="card chat-card">
+                        <div class="chat-header">
+                            <h2 class="card-title">💬 AI Codebase Chat</h2>
+                            <p class="card-description">
+                                Ask questions about an indexed codebase. Retrieves the
+                                top matching code chunks and answers with a local Ollama model.
+                            </p>
+                        </div>
+                        <div id="chat-history" class="chat-history" aria-live="polite"></div>
+                        <div class="chat-input-row">
+                            <input
+                                id="chat-input"
+                                class="input-field chat-input"
+                                type="text"
+                                placeholder="e.g. How does caching work in this codebase?"
+                                autocomplete="off"
+                                spellcheck="false"
+                            >
+                            <button id="btn-send-chat" class="btn btn-primary">
+                                <span class="btn-text">Ask Codebase</span>
+                                <span class="btn-spinner hidden"></span>
+                            </button>
+                        </div>
+                    </div>
                 </section>
             </div>
         </main>
