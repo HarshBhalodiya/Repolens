@@ -34,6 +34,16 @@ const topAuthorsList = document.getElementById('top-authors-list');
 const hotspotsTable = document.getElementById('hotspots-table');
 const hotspotsEmpty = document.getElementById('hotspots-empty');
 
+// AI features (standup summary / codebase indexing)
+const btnGenerateSummary = document.getElementById('btn-generate-summary');
+const btnIndexRepo = document.getElementById('btn-index-repo');
+const standupContent = document.getElementById('standup-content');
+const indexStatus = document.getElementById('index-status');
+const btnGenerateText = btnGenerateSummary.querySelector('.btn-text');
+const btnGenerateSpinner = btnGenerateSummary.querySelector('.btn-spinner');
+const btnIndexText = btnIndexRepo.querySelector('.btn-text');
+const btnIndexSpinner = btnIndexRepo.querySelector('.btn-spinner');
+
 // ============================
 // Global State
 // ============================
@@ -580,6 +590,199 @@ async function handleAnalyzeClick(forceRefresh) {
 }
 
 // ============================
+// AI Features: Standup Summary & Codebase Indexing
+// ============================
+
+// Skeleton loader shown while waiting on Ollama.
+const SKELETON_HTML = `
+    <div class="skeleton-loader" aria-hidden="true">
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line"></div>
+        <div class="skeleton-line skeleton-line-short"></div>
+    </div>
+    <p class="standup-caption">Connecting to Ollama...</p>
+`;
+
+/**
+ * Toggle the loading state of the "Generate Report" button and content.
+ */
+function setStandupLoading(loading) {
+    setVisible(btnGenerateText, !loading);
+    setVisible(btnGenerateSpinner, loading);
+    btnGenerateSummary.disabled = loading;
+    if (loading) {
+        standupContent.innerHTML = SKELETON_HTML;
+    }
+}
+
+/**
+ * Render the standup summary response into #standup-content.
+ * @param {Object} payload - Response from /api/summarize
+ */
+function renderStandupSummary(payload) {
+    if (payload.status === 'error') {
+        const message = payload.summary || 'Ollama service unavailable. Please make sure Ollama is running locally.';
+        standupContent.innerHTML = `
+            <div class="ai-warning">
+                <span class="ai-warning-icon" aria-hidden="true">⚠️</span>
+                <div>
+                    <strong>Request failed</strong>
+                    <p>${escapeHtml(message)}</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    const text = payload.summary || '';
+
+    // Informational payloads (e.g. no commits to summarize) have no status.
+    if (payload.status !== 'success') {
+        standupContent.innerHTML = `<p class="standup-info">${escapeHtml(text)}</p>`;
+        return;
+    }
+
+    if (!text) {
+        standupContent.innerHTML = '<p class="standup-info">No summary returned by the model.</p>';
+        return;
+    }
+
+    // Strip bullet markers and render each line as a styled list item.
+    const lines = text.split('\n')
+        .map(line => line.trim())
+        .filter(Boolean);
+    const bullets = lines
+        .map(line => line.replace(/^[-*•]\s+/, '').replace(/^\d+[.)]\s+/, ''))
+        .filter(line => line.length > 0);
+    const items = bullets.length > 0 ? bullets : [text];
+
+    const listHtml = items.map(item =>
+        `<li class="standup-bullet">${escapeHtml(item)}</li>`
+    ).join('');
+
+    standupContent.innerHTML = `
+        <ul class="standup-list">${listHtml}</ul>
+        <p class="standup-caption standup-success">✓ Report generated from the last 30 commits.</p>
+    `;
+}
+
+/**
+ * Set the codebase index status badge text and state style.
+ * @param {string} message - Status text
+ * @param {'idle'|'active'|'success'|'error'} state - Visual state
+ */
+function setIndexStatus(message, state) {
+    indexStatus.textContent = message;
+    indexStatus.className = 'index-status';
+    indexStatus.classList.add(`index-status-${state}`);
+}
+
+/**
+ * Toggle the loading state of the "Index Codebase" button.
+ */
+function setIndexingLoading(loading) {
+    setVisible(btnIndexText, !loading);
+    setVisible(btnIndexSpinner, loading);
+    btnIndexRepo.disabled = loading;
+}
+
+/**
+ * Send a standup summary request to the backend.
+ */
+async function handleGenerateSummaryClick() {
+    const repoPath = repoPathInput.value;
+    if (!repoPath || !repoPath.trim()) {
+        showError('Please enter a repository path first.');
+        return;
+    }
+
+    hideError();
+    setStandupLoading(true);
+
+    try {
+        const response = await fetch('/api/summarize', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repo_path: repoPath.trim() }),
+        });
+
+        if (!response.ok) {
+            let detail = `Request failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) detail = errorData.detail;
+            } catch (_) { /* use default detail */ }
+            throw new Error(detail);
+        }
+
+        const payload = await response.json();
+        renderStandupSummary(payload);
+    } catch (error) {
+        standupContent.innerHTML = `
+            <div class="ai-warning">
+                <span class="ai-warning-icon" aria-hidden="true">⚠️</span>
+                <div>
+                    <strong>Request failed</strong>
+                    <p>${escapeHtml(error.message || 'An unexpected error occurred.')}</p>
+                </div>
+            </div>
+        `;
+    } finally {
+        setStandupLoading(false);
+    }
+}
+
+/**
+ * Send a codebase indexing request to the backend.
+ */
+async function handleIndexRepoClick() {
+    const repoPath = repoPathInput.value;
+    if (!repoPath || !repoPath.trim()) {
+        showError('Please enter a repository path first.');
+        return;
+    }
+
+    hideError();
+    setIndexingLoading(true);
+    setIndexStatus('Indexing files...', 'active');
+
+    try {
+        const response = await fetch('/api/index_codebase', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ repo_path: repoPath.trim() }),
+        });
+
+        if (!response.ok) {
+            let detail = `Request failed with status ${response.status}`;
+            try {
+                const errorData = await response.json();
+                if (errorData.detail) detail = errorData.detail;
+            } catch (_) { /* use default detail */ }
+            throw new Error(detail);
+        }
+
+        const payload = await response.json();
+        if (payload.status === 'error') {
+            setIndexStatus(payload.message || 'Indexing failed.', 'error');
+        } else {
+            setIndexStatus(
+                `Indexed ${payload.indexed_files} files (${payload.total_chunks} chunks)`,
+                'success'
+            );
+        }
+    } catch (error) {
+        setIndexStatus(error.message || 'Indexing failed.', 'error');
+    } finally {
+        setIndexingLoading(false);
+    }
+}
+
+// ============================
 // Event Listeners
 // ============================
 
@@ -598,6 +801,10 @@ repoPathInput.addEventListener('keydown', (event) => {
 
 // Dismiss error banner
 btnDismissError.addEventListener('click', hideError);
+
+// AI features
+btnGenerateSummary.addEventListener('click', handleGenerateSummaryClick);
+btnIndexRepo.addEventListener('click', handleIndexRepoClick);
 
 // ============================
 // Initialization

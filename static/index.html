@@ -175,6 +175,55 @@
                     </div>
                 </section>
             </div>
+
+            
+            <!-- AI Features: Standup Summary & Codebase Indexing -->
+            <section class="ai-tools-grid">
+                <!-- AI Standup Summary Card -->
+                <section class="card ai-card">
+                    <div class="ai-card-header">
+                        <span class="ai-card-icon" aria-hidden="true">🤖</span>
+                        <h2 class="card-title">AI Standup Summary</h2>
+                    </div>
+                    <p class="card-description">
+                        Analyzes the last 30 commits with a local Ollama model and
+                        produces a 3-bullet standup report.
+                    </p>
+                    <div class="ai-actions">
+                        <button id="btn-generate-summary" class="btn btn-primary">
+                            <span class="btn-text">Generate Report</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                    </div>
+                    <div id="standup-content" class="standup-content">
+                        <!-- <div class="skeleton-loader" aria-hidden="true">
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line"></div>
+                            <div class="skeleton-line skeleton-line-short"></div>
+                        </div> -->
+                        <p class="standup-caption">Connecting to Ollama...</p>
+                    </div>
+                </section>
+
+                <!-- Codebase Vector Indexing Panel -->
+                <section class="card ai-card">
+                    <div class="ai-card-header">
+                        <span class="ai-card-icon" aria-hidden="true">⚡</span>
+                        <h2 class="card-title">Codebase Vector Indexing</h2>
+                    </div>
+                    <p class="card-description">
+                        Chunks supported source files and embeds them into the local
+                        ChromaDB store for AI-powered code search.
+                    </p>
+                    <div class="ai-actions">
+                        <button id="btn-index-repo" class="btn btn-secondary">
+                            <span class="btn-text">Index Codebase for AI Search</span>
+                            <span class="btn-spinner hidden"></span>
+                        </button>
+                        <span id="index-status" class="index-status index-status-idle">Not Indexed</span>
+                    </div>
+                </section>
+            </section>
         </main>
 
         <!-- Footer -->

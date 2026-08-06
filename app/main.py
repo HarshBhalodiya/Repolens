@@ -14,8 +14,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from .ai_engine import generate_standup_summary
 from .db_client import get_cached_analysis, save_analysis_cache
 from .git_parser import extract_repo_metrics
+from .rag_indexer import index_codebase
 from .utils import (
     clone_github_repo,
     get_latest_commit_hash,
@@ -80,6 +82,11 @@ async def require_api_key(authorization: str | None = Header(default=None)) -> N
 class AnalysisRequest(BaseModel):
     repo_path: str
     force_refresh: bool = False
+
+
+# Pydantic model for AI feature requests (standup summary / codebase index)
+class RepoPathRequest(BaseModel):
+    repo_path: str
 
 
 def _is_valid_cached_payload(payload: dict) -> bool:
@@ -188,6 +195,57 @@ async def analyze_repository(request: AnalysisRequest):
             shutil.rmtree(parent, ignore_errors=True)
 
 
+# POST endpoint for AI standup summaries
+@app.post(
+    "/api/summarize", response_model=dict, dependencies=[Depends(require_api_key)]
+)
+def summarize_standup(request: RepoPathRequest):
+    """
+    Generate an AI standup summary for a repository using a local Ollama model.
+
+    Accepts JSON: {"repo_path": str}
+
+    Response shape: {"summary": str, "status": "success" | "error"}
+
+    Note: intentionally a sync `def` endpoint so the (CPU/IO-heavy)
+    LLM call runs in FastAPI's threadpool instead of blocking the event
+    loop like `async def` would.
+    """
+    if not request.repo_path or not request.repo_path.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Repository path cannot be empty.",
+        )
+    return generate_standup_summary(request.repo_path.strip())
+
+
+# POST endpoint for local codebase RAG indexing
+@app.post(
+    "/api/index_codebase",
+    response_model=dict,
+    dependencies=[Depends(require_api_key)],
+)
+def index_codebase_endpoint(request: RepoPathRequest):
+    """
+    Index a repository's source files into the local ChromaDB vector store.
+
+    Accepts JSON: {"repo_path": str}
+
+    Response shape:
+        {"indexed_files": int, "total_chunks": int, "status": "completed"}
+        or {"status": "error", "message": str}.
+
+    Note: intentionally a sync `def` endpoint so model loading and
+    embedding run in FastAPI's threadpool rather than blocking the loop.
+    """
+    if not request.repo_path or not request.repo_path.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Repository path cannot be empty.",
+        )
+    return index_codebase(request.repo_path.strip())
+
+
 # Mount static files directory
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -217,6 +275,8 @@ async def get_info():
         "github_urls": "Supported",
         "endpoints": {
             "analyze": "/api/analyze",
+            "summarize": "/api/summarize",
+            "index_codebase": "/api/index_codebase",
             "health": "/health",
             "info": "/info",
             "docs": "/docs",
