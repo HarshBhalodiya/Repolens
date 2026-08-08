@@ -3,12 +3,12 @@ RepoLens - RAG Codebase Indexer
 
 Walks a repository, chunks supported source files, embeds them locally
 with sentence-transformers (all-MiniLM-L6-v2), and stores the vectors
-in a persistent ChromaDB collection for retrieval-augmented search.
+in Supabase (pgvector) for retrieval-augmented search.
 
 Optional runtime dependencies (only needed for /api/index_codebase):
 
     pip install langchain langchain-community langchain-huggingface \
-        langchain-text-splitters chromadb sentence-transformers
+        langchain-text-splitters sentence-transformers
 
 All heavy imports happen lazily so the rest of RepoLens keeps working
 when the RAG stack is not installed.
@@ -30,9 +30,7 @@ SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".md"}
 # bundles that would produce low-quality, high-cost chunks).
 MAX_FILE_BYTES = 1_000_000
 
-# Persistent ChromaDB storage location + collection name.
-CHROMA_DIR = os.getenv("REPOLENS_CHROMA_DIR", "./chroma_db")
-COLLECTION_NAME = "repolens_codebase"
+# Constants for RAG process.
 
 CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
@@ -112,15 +110,17 @@ def _load_embeddings():
     return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
 
 
-def index_codebase(repo_path: str) -> dict:
+def index_codebase(repo_path: str, repo_id: str | None = None) -> dict:
     """
-    Index a repository's source files into the persistent ChromaDB store.
+    Index a repository's source files into Supabase (pgvector).
 
-    Re-indexing the same repo_path clears that repo's previous documents
-    first, so the collection never accumulates stale chunks.
+    Re-indexing the same repository clears previous documents for that
+    repo_id first, so the database never accumulates stale chunks.
 
     Args:
-        repo_path (str): Path to the repository to index
+        repo_path (str): Local path to the repository directory
+        repo_id (str | None): Unique repository identifier (e.g. GitHub URL or local path).
+                              If None, defaults to repo_path.
 
     Returns:
         dict: {"indexed_files": int, "total_chunks": int, "status": "completed"}
@@ -131,6 +131,8 @@ def index_codebase(repo_path: str) -> dict:
             "status": "error",
             "message": "Repository path does not exist or is not a directory.",
         }
+
+    db_repo_path = repo_id if repo_id is not None else repo_path
 
     # --- 1. Traverse & read supported files into documents -------------
     documents = []
@@ -145,7 +147,7 @@ def index_codebase(repo_path: str) -> dict:
                 "RAG dependencies are not installed. Run: "
                 "pip install langchain langchain-community "
                 "langchain-huggingface langchain-text-splitters "
-                "chromadb sentence-transformers"
+                "sentence-transformers"
             ),
         }
 
@@ -158,7 +160,7 @@ def index_codebase(repo_path: str) -> dict:
                 page_content=text,
                 metadata={
                     "file_path": os.path.relpath(full_path, repo_path),
-                    "repo_path": repo_path,
+                    "repo_path": db_repo_path,
                 },
             )
         )
@@ -172,60 +174,69 @@ def index_codebase(repo_path: str) -> dict:
             "message": "No supported source files found to index.",
         }
 
-    # --- 2. Chunk, embed & upsert into ChromaDB -------------------------
-    try:
-        import chromadb
+    # --- 2. Chunk, embed & upsert into Supabase -------------------------
+    from .db_client import _get_http_client, SUPABASE_ENABLED
 
+    if not SUPABASE_ENABLED:
+        return {
+            "status": "error",
+            "message": "Supabase is not configured or enabled. Please set SUPABASE_URL and SUPABASE_KEY in .env.",
+        }
+
+    try:
         splitter = _load_text_splitter()
         chunks = splitter.split_documents(documents)
         embeddings = _load_embeddings()
-        client = chromadb.PersistentClient(path=CHROMA_DIR)
-        collection = client.get_or_create_collection(name=COLLECTION_NAME)
-    except ImportError:
-        return {
-            "status": "error",
-            "message": (
-                "RAG dependencies are not installed. Run: "
-                "pip install langchain langchain-community "
-                "langchain-huggingface langchain-text-splitters "
-                "chromadb sentence-transformers"
-            ),
-        }
     except Exception as e:
-        logger.warning("Failed to initialize vector store: %s", e)
+        logger.warning("Failed to initialize text splitter or embeddings: %s", e)
         return {
             "status": "error",
-            "message": f"Failed to initialize the vector store: {e}",
+            "message": f"Failed to initialize embeddings: {e}",
         }
 
-    # Clear stale documents for this repo before re-indexing.
+    # Clear stale documents for this repo in Supabase.
     try:
-        collection.delete(where={"repo_path": repo_path})
+        client = _get_http_client()
+        delete_resp = client.delete("code_embeddings", params={"repo_path": f"eq.{db_repo_path}"})
+        delete_resp.raise_for_status()
     except Exception as e:
         logger.warning(
-            "Could not clear previous index for %s: %s", repo_path, e
+            "Could not clear previous index for %s in Supabase: %s", db_repo_path, e
         )
 
-    # ChromaDB ids must be unique across the whole collection.
-    ids = [
-        hashlib.sha256(f"{repo_path}::{i}".encode("utf-8")).hexdigest()
-        for i in range(len(chunks))
-    ]
-    metadatas = [chunk.metadata for chunk in chunks]
+    # Embed chunks.
     texts = [chunk.page_content for chunk in chunks]
-
     try:
-        collection.add(
-            ids=ids,
-            documents=texts,
-            metadatas=metadatas,
-            embeddings=embeddings.embed_documents(texts),
-        )
+        embedded_vectors = embeddings.embed_documents(texts)
     except Exception as e:
-        logger.warning("Embedding/indexing failed for %s: %s", repo_path, e)
+        logger.warning("Embedding generation failed: %s", e)
         return {
             "status": "error",
-            "message": f"Failed to embed/index the codebase: {e}",
+            "message": f"Failed to embed document chunks: {e}",
+        }
+
+    # Prepare payload.
+    payload = []
+    for chunk, embedding in zip(chunks, embedded_vectors):
+        payload.append({
+            "repo_path": db_repo_path,
+            "file_path": chunk.metadata["file_path"],
+            "content": chunk.page_content,
+            "embedding": embedding,
+        })
+
+    # Upsert to Supabase code_embeddings table in batches of 100 to avoid payload size limit issues.
+    BATCH_SIZE = 100
+    try:
+        for i in range(0, len(payload), BATCH_SIZE):
+            batch = payload[i : i + BATCH_SIZE]
+            upload_resp = client.post("code_embeddings", json=batch)
+            upload_resp.raise_for_status()
+    except Exception as e:
+        logger.warning("Upload of embeddings to Supabase failed: %s", e)
+        return {
+            "status": "error",
+            "message": f"Failed to upload embeddings to Supabase: {e}",
         }
 
     return {

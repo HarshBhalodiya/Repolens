@@ -9,7 +9,7 @@ import os
 import shutil
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
@@ -17,6 +17,19 @@ from pydantic import BaseModel
 
 from .ai_engine import answer_codebase_question, generate_standup_summary
 from .db_client import get_cached_analysis, save_analysis_cache
+from .rag_indexer import index_codebase
+
+def index_and_cleanup(real_path: str, repo_id: str, temp_cleanup_path: str | None):
+    """Run codebase indexing in the background, then clean up temp clone folders if needed."""
+    try:
+        index_codebase(real_path, repo_id)
+    except Exception as e:
+        import logging
+        logging.getLogger(__name__).warning("Background indexing failed for %s: %s", repo_id, e)
+    finally:
+        if temp_cleanup_path and os.path.exists(temp_cleanup_path):
+            parent = os.path.dirname(temp_cleanup_path)
+            shutil.rmtree(parent, ignore_errors=True)
 from .dependency_parser import build_dependency_graph
 from .git_parser import extract_repo_metrics
 from .utils import (
@@ -141,7 +154,7 @@ def _is_valid_cached_payload(payload: dict) -> bool:
 
 # POST endpoint for repository analysis
 @app.post("/api/analyze", response_model=dict, dependencies=[Depends(require_api_key)])
-async def analyze_repository(request: AnalysisRequest):
+async def analyze_repository(request: AnalysisRequest, background_tasks: BackgroundTasks):
     """
     Analyze a Git repository and return commit metrics.
 
@@ -167,6 +180,7 @@ async def analyze_repository(request: AnalysisRequest):
 
     repo_input = request.repo_path.strip()
     temp_cleanup_path = None
+    indexing_delegated = False
 
     try:
         # --- Handle GitHub URLs ---
@@ -226,6 +240,10 @@ async def analyze_repository(request: AnalysisRequest):
             }
             save_analysis_cache(repo_input, commit_hash, cache_payload)
 
+        # Delegate indexing and cleanup to background tasks
+        background_tasks.add_task(index_and_cleanup, real_path, repo_input, temp_cleanup_path)
+        indexing_delegated = True
+
         return {"cached": False, "data": metrics}
 
     except HTTPException:
@@ -236,8 +254,8 @@ async def analyze_repository(request: AnalysisRequest):
             detail=f"An unexpected error occurred: {str(e)}",
         )
     finally:
-        # Clean up temporary cloned repo if any
-        if temp_cleanup_path and os.path.exists(temp_cleanup_path):
+        # Clean up temporary cloned repo immediately only if indexing wasn't delegated
+        if not indexing_delegated and temp_cleanup_path and os.path.exists(temp_cleanup_path):
             parent = os.path.dirname(temp_cleanup_path)
             shutil.rmtree(parent, ignore_errors=True)
 
@@ -303,18 +321,15 @@ def chat_with_codebase(request: ChatRequest):
         raise HTTPException(status_code=400, detail="Query cannot be empty.")
 
     repo_input = request.repo_path.strip()
-    temp_cleanup_path = None
     try:
-        real_path, temp_cleanup_path = _resolve_repo_path(repo_input)
-        return answer_codebase_question(real_path, request.query.strip())
+        # Directly query using the repo identifier. No cloning required!
+        return answer_codebase_question(repo_input, request.query.strip())
     except Exception as e:
         return {
             "answer": f"Failed to answer the question: {str(e)}",
             "sources": [],
             "status": "error",
         }
-    finally:
-        _cleanup_temp_repo(temp_cleanup_path)
 
 
 # POST endpoint for the Tree-sitter dependency graph

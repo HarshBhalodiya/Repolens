@@ -180,72 +180,74 @@ def answer_codebase_question(repo_path: str, query: str) -> dict:
     # optional, so a missing install degrades to a clear message instead of
     # breaking the rest of RepoLens.
     try:
-        import chromadb
         from langchain_core.prompts import PromptTemplate
         from langchain_ollama import OllamaLLM
 
         from . import rag_indexer
+        from .db_client import _get_http_client, SUPABASE_ENABLED
     except ImportError:
         return {
             "answer": (
                 "RAG dependencies are not installed. Run: pip install "
                 "langchain langchain-ollama langchain-huggingface "
-                "langchain-text-splitters chromadb sentence-transformers"
+                "langchain-text-splitters sentence-transformers"
             ),
             "sources": [],
             "status": "error",
         }
 
-    # Open the vector store and check the collection exists BEFORE loading
-    # the (slow) embedding model, so the common "not indexed yet" case
-    # fails fast without a model download.
-    try:
-        client = chromadb.PersistentClient(path=rag_indexer.CHROMA_DIR)
-        try:
-            collection = client.get_collection(name=rag_indexer.COLLECTION_NAME)
-        except Exception:
-            return {
-                "answer": "Please index the codebase first.",
-                "sources": [],
-                "status": "error",
-            }
-    except Exception as e:
-        logger.warning("Failed to open vector store: %s", e)
+    if not SUPABASE_ENABLED:
         return {
-            "answer": f"Failed to open the vector store: {e}",
+            "answer": "Supabase is not configured or enabled. Please set SUPABASE_URL and SUPABASE_KEY in .env.",
             "sources": [],
             "status": "error",
         }
 
-    # Retrieve the top-k chunks for THIS repo only (the collection may
-    # hold several repositories' chunks).
+    # Retrieve the top-k chunks for THIS repo only using Supabase vector search.
     try:
         embeddings = rag_indexer._load_embeddings()
-        results = collection.query(
-            query_embeddings=embeddings.embed_query(query.strip()),
-            n_results=RAG_TOP_K,
-            where={"repo_path": repo_path},
-        )
+        query_vector = embeddings.embed_query(query.strip())
     except ImportError:
         return {
             "answer": (
                 "RAG dependencies are not installed. Run: pip install "
                 "langchain langchain-ollama langchain-huggingface "
-                "langchain-text-splitters chromadb sentence-transformers"
+                "langchain-text-splitters sentence-transformers"
             ),
             "sources": [],
             "status": "error",
         }
     except Exception as e:
-        logger.warning("Retrieval failed for %s: %s", repo_path, e)
+        logger.warning("Query embedding generation failed: %s", e)
         return {
-            "answer": "Failed to retrieve context from the index.",
+            "answer": "Failed to embed search query.",
             "sources": [],
             "status": "error",
         }
 
-    documents = (results.get("documents") or [[]])[0]
-    metadatas = (results.get("metadatas") or [[]])[0]
+    try:
+        client = _get_http_client()
+        rpc_resp = client.post(
+            "rpc/match_code_embeddings",
+            json={
+                "query_embedding": query_vector,
+                "match_threshold": 0.2,       # Minimum cosine similarity score (20%)
+                "match_count": RAG_TOP_K,      # Top K chunks to fetch
+                "filter_repo_path": repo_path  # Repository path filter
+            }
+        )
+        rpc_resp.raise_for_status()
+        matches = rpc_resp.json()
+    except Exception as e:
+        logger.warning("Supabase similarity search failed for %s: %s", repo_path, e)
+        return {
+            "answer": f"Failed to retrieve codebase context from Supabase: {e}",
+            "sources": [],
+            "status": "error",
+        }
+
+    documents = [match["content"] for match in matches]
+    metadatas = [{"file_path": match["file_path"]} for match in matches]
 
     if not documents:
         return {
