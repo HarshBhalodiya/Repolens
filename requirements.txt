@@ -8,9 +8,19 @@ tree-sitter>=0.25,<0.27
 tree-sitter-python>=0.23,<0.26
 tree-sitter-javascript>=0.23,<0.26
 tree-sitter-typescript>=0.23,<0.25
+# RAG codebase chat (/api/index, /api/chat) - was missing here entirely,
+# so a plain `pip install -r requirements.txt` left RAG broken by default.
+langchain>=0.2,<0.4
+langchain-core>=0.2,<0.4
+langchain-ollama>=0.1,<0.3
+langchain-huggingface>=0.0.3,<0.2
+langchain-text-splitters>=0.2,<0.4
+sentence-transformers>=2.7,<4.0
 # Run with: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 #
 # Versions are pinned to minimum-compatible ranges rather than left
 # unbounded, so a future major release of any dependency can't silently
 # change behavior (e.g. column-naming changes in pandas groupby/aggregate
 # output) or break the app without a visible version-resolution failure.
+
+# .\.venv\Scripts\Activate.ps1

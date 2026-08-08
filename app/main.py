@@ -21,10 +21,17 @@ from .rag_indexer import index_codebase
 
 def index_and_cleanup(real_path: str, repo_id: str, temp_cleanup_path: str | None):
     """Run codebase indexing in the background, then clean up temp clone folders if needed."""
+    import logging
     try:
-        index_codebase(real_path, repo_id)
+        result = index_codebase(real_path, repo_id)
+        if result.get("status") == "error":
+            # index_codebase() reports failure via return value, not exceptions.
+            # That was being silently discarded before - log it so failures are
+            # actually visible instead of leaving chat permanently broken.
+            logging.getLogger(__name__).warning(
+                "Background indexing failed for %s: %s", repo_id, result.get("message")
+            )
     except Exception as e:
-        import logging
         logging.getLogger(__name__).warning("Background indexing failed for %s: %s", repo_id, e)
     finally:
         if temp_cleanup_path and os.path.exists(temp_cleanup_path):
@@ -214,6 +221,18 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
                 # Attach per-request metadata to the cached payload
                 cached["_source"] = source_label
                 cached["_input"] = repo_input
+
+                # BUGFIX: a cache hit used to return here without ever indexing.
+                # Cached analysis and "indexed for chat" are NOT the same thing -
+                # if the one-and-only indexing attempt (on first analysis) failed
+                # or was never run, every later cache-hit visit permanently skipped
+                # indexing too, so /api/chat could never recover. Re-index here as
+                # well; index_codebase() deletes old rows for this repo first, so
+                # this is safe to call repeatedly.
+                # indexing_delegated=True so the `finally` block below doesn't
+                # delete a cloned repo before the background task gets to read it.
+                background_tasks.add_task(index_and_cleanup, real_path, repo_input, temp_cleanup_path)
+                indexing_delegated = True
                 return {"cached": True, "data": cached}
 
         # --- Fresh analysis ---
@@ -292,6 +311,39 @@ def summarize_standup(request: RepoPathRequest):
             "summary": f"Failed to generate standup summary: {str(e)}",
             "status": "error",
         }
+    finally:
+        _cleanup_temp_repo(temp_cleanup_path)
+
+
+# POST endpoint to manually (re)index a repo for RAG chat, synchronously,
+# so failures are returned to the caller instead of vanishing into a
+# background task.
+@app.post(
+    "/api/index", response_model=dict, dependencies=[Depends(require_api_key)]
+)
+def index_repo(request: RepoPathRequest):
+    """
+    (Re)build the RAG index for a repository and report success/failure directly.
+
+    Accepts JSON: {"repo_path": str}
+
+    Response shape:
+        {"indexed_files": int, "total_chunks": int, "status": "completed"}
+        or {"status": "error", "message": str}
+    """
+    if not request.repo_path or not request.repo_path.strip():
+        raise HTTPException(
+            status_code=400,
+            detail="Repository path cannot be empty.",
+        )
+
+    repo_input = request.repo_path.strip()
+    temp_cleanup_path = None
+    try:
+        real_path, temp_cleanup_path = _resolve_repo_path(repo_input)
+        return index_codebase(real_path, repo_input)
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to index repository: {str(e)}"}
     finally:
         _cleanup_temp_repo(temp_cleanup_path)
 
@@ -409,6 +461,7 @@ async def get_info():
         "endpoints": {
             "analyze": "/api/analyze",
             "summarize": "/api/summarize",
+            "index": "/api/index",
             "chat": "/api/chat",
             "dependencies": "/api/dependencies",
             "health": "/health",
