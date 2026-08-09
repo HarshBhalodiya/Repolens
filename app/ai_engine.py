@@ -16,6 +16,10 @@ missing/broken AI stack can never prevent the app from booting.
 import logging
 import os
 import subprocess
+from dotenv import load_dotenv
+
+load_dotenv()
+
 
 logger = logging.getLogger(__name__)
 

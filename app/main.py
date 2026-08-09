@@ -4,7 +4,7 @@ RepoLens - Main Application
 FastAPI application serving the Git repository analysis dashboard.
 Supports both local Git repositories and remote GitHub URLs.
 """
-
+import logging
 import os
 import shutil
 from pathlib import Path
@@ -231,8 +231,11 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
                 # this is safe to call repeatedly.
                 # indexing_delegated=True so the `finally` block below doesn't
                 # delete a cloned repo before the background task gets to read it.
-                background_tasks.add_task(index_and_cleanup, real_path, repo_input, temp_cleanup_path)
-                indexing_delegated = True
+                index_result = index_codebase(real_path, repo_input)
+                if index_result.get("status") == "error":
+                    logging.getLogger(__name__).warning(
+                        "Indexing failed for %s: %s", repo_input, index_result.get("message")
+                    )
                 return {"cached": True, "data": cached}
 
         # --- Fresh analysis ---
@@ -260,8 +263,11 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
             save_analysis_cache(repo_input, commit_hash, cache_payload)
 
         # Delegate indexing and cleanup to background tasks
-        background_tasks.add_task(index_and_cleanup, real_path, repo_input, temp_cleanup_path)
-        indexing_delegated = True
+        index_result = index_codebase(real_path, repo_input)
+        if index_result.get("status") == "error":
+            logging.getLogger(__name__).warning(
+                "Indexing failed for %s: %s", repo_input, index_result.get("message")
+            )
 
         return {"cached": False, "data": metrics}
 
