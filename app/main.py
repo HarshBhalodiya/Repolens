@@ -248,20 +248,25 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
                 cached["_source"] = source_label
                 cached["_input"] = repo_input
 
-                # BUGFIX: a cache hit used to return here without ever indexing.
-                # Cached analysis and "indexed for chat" are NOT the same thing -
-                # if the one-and-only indexing attempt (on first analysis) failed
-                # or was never run, every later cache-hit visit permanently skipped
-                # indexing too, so /api/chat could never recover. Re-index here as
-                # well; index_codebase() deletes old rows for this repo first, so
-                # this is safe to call repeatedly.
-                # indexing_delegated=True so the `finally` block below doesn't
-                # delete a cloned repo before the background task gets to read it.
-                index_result = index_codebase(real_path, repo_input)
-                if index_result.get("status") == "error":
-                    logging.getLogger(__name__).warning(
-                        "Indexing failed for %s: %s", repo_input, index_result.get("message")
-                    )
+                # Only re-index when the commit actually changed since the
+                # last successful index. `rag_indexed_commit` is stamped
+                # into the cache payload after a successful index (see
+                # below) - if it already matches the current commit_hash,
+                # the codebase content hasn't changed, so re-embedding and
+                # re-uploading to Supabase would just redo identical work
+                # every time the same repo is analyzed again.
+                if cached.get("rag_indexed_commit") != commit_hash:
+                    index_result = index_codebase(real_path, repo_input)
+                    if index_result.get("status") == "error":
+                        logging.getLogger(__name__).warning(
+                            "Indexing failed for %s: %s", repo_input, index_result.get("message")
+                        )
+                    else:
+                        cached["rag_indexed_commit"] = commit_hash
+                        cache_payload = {
+                            k: v for k, v in cached.items() if not k.startswith("_")
+                        }
+                        save_analysis_cache(repo_input, commit_hash, cache_payload)
                 return {"cached": True, "data": cached}
 
         # --- Fresh analysis ---
@@ -279,6 +284,17 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
         metrics["_source"] = source_label
         metrics["_input"] = repo_input
 
+        # Index first so a successful stamp can be included in the same
+        # cache write below - avoids caching a payload that claims to be
+        # indexed when indexing actually failed.
+        index_result = index_codebase(real_path, repo_input)
+        if index_result.get("status") == "error":
+            logging.getLogger(__name__).warning(
+                "Indexing failed for %s: %s", repo_input, index_result.get("message")
+            )
+        elif commit_hash:
+            metrics["rag_indexed_commit"] = commit_hash
+
         # Persist to cache only if the analysis is meaningful - never cache
         # empty/errored results. Use the user-provided input as the recorded
         # path so remote clones don't store dead temp-dir paths.
@@ -287,13 +303,6 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
                 k: v for k, v in metrics.items() if not k.startswith("_")
             }
             save_analysis_cache(repo_input, commit_hash, cache_payload)
-
-        # Delegate indexing and cleanup to background tasks
-        index_result = index_codebase(real_path, repo_input)
-        if index_result.get("status") == "error":
-            logging.getLogger(__name__).warning(
-                "Indexing failed for %s: %s", repo_input, index_result.get("message")
-            )
 
         return {"cached": False, "data": metrics}
 
