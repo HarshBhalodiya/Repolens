@@ -43,7 +43,7 @@ OLLAMA_UNAVAILABLE_MESSAGE = (
 
 # Prompt used by the RAG codebase chat (/api/chat). The model is told to
 # answer strictly from the retrieved context and to cite file paths.
-RAG_PROMPT_TEMPLATE = """You are an expert codebase assistant. Answer the user question based strictly on the following code context. Cite file paths when possible.
+RAG_PROMPT_TEMPLATE = """You are an expert codebase assistant. Answer the user question using ONLY the following code context. Do not guess or speculate about files, functions, or structure that are not shown in the context below. If the context is insufficient to fully answer the question, say so explicitly and answer only the part you can support, citing the exact file path for each claim.
 
 Context:
 {context}

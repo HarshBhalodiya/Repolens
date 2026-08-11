@@ -38,7 +38,7 @@ def extract_repo_metrics(repo_path: str) -> dict:
     Returns:
         dict: Dictionary containing:
             - summary: Total commits, total authors, first/last commit dates
-            - hourly_distribution: Commits grouped by hour of day (0-23)
+            - daily_distribution: Commits grouped by date (YYYY-MM-DD)
             - top_authors: Authors ranked by commit count
             - code_churn: Daily additions/deletions over time
             - hotspots: Top 10 most frequently changed files
@@ -117,17 +117,15 @@ def extract_repo_metrics(repo_path: str) -> dict:
     if df.empty:
         return _empty_metrics()
 
-    # Extract hour from commit date (UTC)
-    df["hour"] = df["date"].dt.hour
-
-    # --- Compute 24-Hour Distribution ---
-    hourly_counts = (
-        df.groupby("hour")
+    # --- Compute Daily Distribution ---
+    df["day"] = df["date"].dt.strftime("%Y-%m-%d")
+    daily_counts = (
+        df.groupby("day")
         .size()
-        .reindex(range(24), fill_value=0)
         .reset_index(name="commits")
     )
-    hourly_distribution = hourly_counts.to_dict(orient="records")
+    daily_counts = daily_counts.sort_values("day")
+    daily_distribution = daily_counts.to_dict(orient="records")
 
     # --- Compute Summary ---
     total_commits = len(df)
@@ -181,7 +179,7 @@ def extract_repo_metrics(repo_path: str) -> dict:
             "first_commit": first_commit_str,
             "last_commit": last_commit_str,
         },
-        "hourly_distribution": hourly_distribution,
+        "daily_distribution": daily_distribution,
         "top_authors": top_authors,
         "code_churn": code_churn,
         "hotspots": hotspots,
@@ -285,7 +283,7 @@ def _empty_metrics(reason: str = "") -> dict:
             "first_commit": None,
             "last_commit": None,
         },
-        "hourly_distribution": [{"hour": h, "commits": 0} for h in range(24)],
+        "daily_distribution": [],
         "top_authors": [],
         "code_churn": [],
         "hotspots": [],

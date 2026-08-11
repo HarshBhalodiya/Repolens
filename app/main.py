@@ -49,6 +49,19 @@ from .utils import (
 # Initialize FastAPI application
 app = FastAPI(title="RepoLens", description="AI-powered local Git repository analyzer")
 
+@app.on_event("startup")
+def _warm_embeddings_model():
+    """Pre-load the embedding model at server startup instead of on the
+    first indexing/chat request, so users aren't hit with a multi-minute
+    first-request delay while the model loads."""
+    try:
+        from .rag_indexer import _load_embeddings
+        _load_embeddings()
+        logging.getLogger(__name__).info("Embedding model pre-loaded.")
+    except Exception as e:
+        logging.getLogger(__name__).warning("Embedding model pre-load failed: %s", e)
+
+
 # Repo root derived from this file's own location. Root cause of the
 # original bug: "static" / "static/index.html" were resolved against the
 # process's current working directory, so `uvicorn app.main:app` only
@@ -213,11 +226,24 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
             # Auto-heal: ignore (and implicitly overwrite) stale empty/errored
             # entries so a single bad run can't blank the dashboard forever.
             if cached is not None and _is_valid_cached_payload(cached):
-                # Ensure the cached response has languages (handles migration for older cache entries)
-                if "languages" not in cached:
+                # Ensure the cached response has languages and daily_distribution (handles migration for older cache entries)
+                needs_update = False
+                if "daily_distribution" not in cached:
+                    fresh_metrics = extract_repo_metrics(real_path)
+                    if fresh_metrics and not fresh_metrics.get("_error"):
+                        cached = fresh_metrics
+                        needs_update = True
+
+                if "languages" not in cached and not needs_update:
                     from .git_parser import get_language_distribution
                     cached["languages"] = get_language_distribution(real_path)
-                    save_analysis_cache(repo_input, commit_hash, cached)
+                    needs_update = True
+
+                if needs_update:
+                    cache_payload = {
+                        k: v for k, v in cached.items() if not k.startswith("_")
+                    }
+                    save_analysis_cache(repo_input, commit_hash, cache_payload)
                 # Attach per-request metadata to the cached payload
                 cached["_source"] = source_label
                 cached["_input"] = repo_input

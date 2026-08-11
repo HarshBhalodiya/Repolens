@@ -36,6 +36,10 @@ CHUNK_SIZE = 500
 CHUNK_OVERLAP = 50
 EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 
+import threading
+
+_EMBEDDINGS_INSTANCE = None
+_EMBEDDINGS_LOCK = threading.Lock()
 
 def _collect_source_files(repo_path: str) -> list[str]:
     """
@@ -97,17 +101,29 @@ def _load_text_splitter():
 
 def _load_embeddings():
     """
-    Return a HuggingFaceEmbeddings instance.
+    Return a cached HuggingFaceEmbeddings instance, loaded once per process.
 
     `HuggingFaceEmbeddings` lives in langchain-huggingface these days but
     was historically re-exported from langchain-community; try the new
     home first and fall back so either install works.
+
+    Previously this constructed a brand new instance (reloading the full
+    model from disk) on every single index/chat call, which is the actual
+    cause of indexing/chat taking minutes instead of seconds. Caching it
+    means the model loads once - ideally at server startup via the
+    `_warm_embeddings_model` startup hook in main.py - and every
+    subsequent call reuses it.
     """
-    try:
-        from langchain_huggingface import HuggingFaceEmbeddings
-    except ImportError:
-        from langchain_community.embeddings import HuggingFaceEmbeddings
-    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    global _EMBEDDINGS_INSTANCE
+    if _EMBEDDINGS_INSTANCE is None:
+        with _EMBEDDINGS_LOCK:
+            if _EMBEDDINGS_INSTANCE is None:
+                try:
+                    from langchain_huggingface import HuggingFaceEmbeddings
+                except ImportError:
+                    from langchain_community.embeddings import HuggingFaceEmbeddings
+                _EMBEDDINGS_INSTANCE = HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL)
+    return _EMBEDDINGS_INSTANCE
 
 
 def index_codebase(repo_path: str, repo_id: str | None = None) -> dict:
