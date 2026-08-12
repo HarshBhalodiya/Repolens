@@ -530,12 +530,6 @@ body {
     font-weight: 500;
 }
 
-/* ============================
-   Chart Card
-   ============================ */
-.chart-card {
-    padding: var(--spacing-xl);
-}
 
 .chart-header {
     margin-bottom: var(--spacing-lg);

@@ -28,7 +28,7 @@ def extract_repo_metrics(repo_path: str) -> dict:
     Extract comprehensive metrics from a Git repository.
 
     Uses `git log` to retrieve commit history, then processes the data
-    with Pandas to compute various metrics including hourly distribution,
+    with Pandas to compute various metrics including daily distribution,
     top authors, code churn (additions/deletions), file hotspots,
     and average message length.
 
@@ -117,15 +117,7 @@ def extract_repo_metrics(repo_path: str) -> dict:
     if df.empty:
         return _empty_metrics()
 
-    # --- Compute Daily Distribution ---
-    df["day"] = df["date"].dt.strftime("%Y-%m-%d")
-    daily_counts = (
-        df.groupby("day")
-        .size()
-        .reset_index(name="commits")
-    )
-    daily_counts = daily_counts.sort_values("day")
-    daily_distribution = daily_counts.to_dict(orient="records")
+
 
     # --- Compute Summary ---
     total_commits = len(df)
@@ -179,7 +171,6 @@ def extract_repo_metrics(repo_path: str) -> dict:
             "first_commit": first_commit_str,
             "last_commit": last_commit_str,
         },
-        "daily_distribution": daily_distribution,
         "top_authors": top_authors,
         "code_churn": code_churn,
         "hotspots": hotspots,
@@ -283,7 +274,6 @@ def _empty_metrics(reason: str = "") -> dict:
             "first_commit": None,
             "last_commit": None,
         },
-        "daily_distribution": [],
         "top_authors": [],
         "code_churn": [],
         "hotspots": [],

@@ -1,6 +1,6 @@
 # RepoLens 🔍
 
-RepoLens is an AI-powered local Git repository analyzer and dashboard. It provides detailed commit analytics (code churn, hotspots, hourly commit distribution), generates AI standup summaries via local LLMs, indexes codebases for RAG (Retrieval-Augmented Generation) Q&A, and builds interactive file-level dependency knowledge graphs.
+RepoLens is an AI-powered local Git repository analyzer and dashboard. It provides detailed commit analytics (code churn, hotspots, daily commit distribution), generates AI standup summaries via local LLMs, indexes codebases for RAG (Retrieval-Augmented Generation) Q&A, and builds interactive file-level dependency knowledge graphs.
 
 ---
 
@@ -8,7 +8,7 @@ RepoLens is an AI-powered local Git repository analyzer and dashboard. It provid
 
 1. **Commit Extraction & Git Analytics**
    * Computes daily code churn (insertions vs. deletions) and detects most frequently changed files (hotspots) via Git subprocess logs and Pandas.
-   * Visualizes author commit distributions, hourly metrics, and programming language ratios.
+   * Visualizes author commit distributions, daily commit activity, and programming language ratios.
    * Utilizes field separator tokens (`\x1f`) to avoid CSV syntax corruption in free-form commit messages.
 
 2. **Local LLM Integration**
@@ -126,7 +126,7 @@ Analyzes a repository (local path or Git URL) and returns metric reports.
     "force_refresh": false
   }
   ```
-* **Response**: A comprehensive metrics payload containing commit summaries, hourly graphs, top author lists, code churn history, and file hotspots.
+* **Response**: A comprehensive metrics payload containing commit summaries, daily commit graphs, top author lists, code churn history, and file hotspots.
 
 ### `POST /api/summarize`
 Generates a 3-bullet standup summary of the last 30 commits.

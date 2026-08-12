@@ -28,7 +28,6 @@ const valueTotalAuthors = document.getElementById('value-total-authors');
 const valueAvgMsgLen = document.getElementById('value-avg-msg-len');
 
 // Canvas for Chart.js
-const hourlyChartCanvas = document.getElementById('hourlyChart');
 const churnChartCanvas = document.getElementById('churnChart');
 const churnChartWrapper = document.getElementById('churn-chart-wrapper');
 const churnEmpty = document.getElementById('churn-empty');
@@ -57,7 +56,6 @@ const graphStatus = document.getElementById('graph-status');
 // ============================
 // Global State
 // ============================
-let hourlyChartInstance = null;
 let churnChartInstance = null;
 let showAllAuthors = false;
 let allAuthorsData = [];
@@ -139,99 +137,6 @@ function formatNumber(num) {
 // Chart Rendering
 // ============================
 
-/**
- * Render (or update) the hourly commit activity bar chart.
- * @param {Array<{hour: number, commits: number}>} hourlyData
- */
-function renderHourlyChart(hourlyData) {
-    // Destroy existing chart instance if it exists
-    if (hourlyChartInstance) {
-        hourlyChartInstance.destroy();
-        hourlyChartInstance = null;
-    }
-
-    const ctx = hourlyChartCanvas.getContext('2d');
-
-    const labels = hourlyData.map(d => `${String(d.hour).padStart(2, '0')}:00`);
-    const values = hourlyData.map(d => d.commits);
-
-    hourlyChartInstance = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Commits',
-                data: values,
-                backgroundColor: '#2EA043',
-                hoverBackgroundColor: '#3FB950',
-                borderRadius: 3,
-                borderSkipped: false,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false,
-                },
-                tooltip: {
-                    backgroundColor: '#161B22',
-                    titleColor: '#F0F6FC',
-                    bodyColor: '#8B949E',
-                    borderColor: '#30363D',
-                    borderWidth: 1,
-                    padding: 12,
-                    cornerRadius: 6,
-                    displayColors: false,
-                    callbacks: {
-                        title: function(items) {
-                            return items[0].label;
-                        },
-                        label: function(item) {
-                            return `${item.raw} commit${item.raw !== 1 ? 's' : ''}`;
-                        }
-                    }
-                }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: '#30363D',
-                        drawBorder: false,
-                    },
-                    ticks: {
-                        color: '#8B949E',
-                        font: {
-                            size: 11,
-                            family: "'SFMono-Regular', Consolas, monospace",
-                        },
-                        maxRotation: 45,
-                        autoSkipPadding: 8,
-                    },
-                },
-                y: {
-                    beginAtZero: true,
-                    grid: {
-                        color: '#30363D',
-                        drawBorder: false,
-                    },
-                    ticks: {
-                        color: '#8B949E',
-                        font: {
-                            size: 11,
-                        },
-                        precision: 0,
-                    },
-                }
-            },
-            animation: {
-                duration: 600,
-                easing: 'easeOutQuart',
-            },
-        }
-    });
-}
 
 // ============================
 // Code Churn Chart Rendering
@@ -579,10 +484,6 @@ function populateDashboard(data) {
         ? `${data.avg_message_length} chars`
         : '\u2014';
 
-    // Render chart
-    if (data.hourly_distribution && Array.isArray(data.hourly_distribution)) {
-        renderHourlyChart(data.hourly_distribution);
-    }
 
     // Render top authors
     if (data.top_authors && Array.isArray(data.top_authors)) {
