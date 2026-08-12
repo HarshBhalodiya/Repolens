@@ -8,11 +8,8 @@
 // ============================
 const repoPathInput = document.getElementById('repo-path');
 const btnAnalyze = document.getElementById('btn-analyze');
-const btnForceRefresh = document.getElementById('btn-force-refresh');
 const btnText = btnAnalyze.querySelector('.btn-text');
 const btnSpinner = btnAnalyze.querySelector('.btn-spinner');
-const btnRefreshText = btnForceRefresh.querySelector('.btn-text');
-const btnRefreshSpinner = btnForceRefresh.querySelector('.btn-spinner');
 const loadingSpinner = document.getElementById('loading-spinner');
 const loadingText = document.getElementById('loading-text');
 const errorBanner = document.getElementById('error-banner');
@@ -99,10 +96,7 @@ function hideError() {
 function setLoading(loading, message) {
     setVisible(btnText, !loading);
     setVisible(btnSpinner, loading);
-    setVisible(btnRefreshText, !loading);
-    setVisible(btnRefreshSpinner, loading);
     btnAnalyze.disabled = loading;
-    btnForceRefresh.disabled = loading;
     repoPathInput.disabled = loading;
     setVisible(loadingSpinner, loading);
     if (loading && message && loadingText) {
@@ -1112,8 +1106,6 @@ async function loadDependencyGraph() {
 // Analyze button click
 btnAnalyze.addEventListener('click', () => handleAnalyzeClick(false));
 
-// Re-analyze (force refresh) button click - bypasses the cache
-btnForceRefresh.addEventListener('click', () => handleAnalyzeClick(true));
 
 // Enter key in input field
 repoPathInput.addEventListener('keydown', (event) => {
