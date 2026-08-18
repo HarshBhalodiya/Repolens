@@ -833,7 +833,7 @@ function renderStandupSummary(payload) {
 
     standupContent.innerHTML = `
         <ul class="standup-list">${listHtml}</ul>
-        <p class="standup-caption standup-success">✓ Report generated from the last 30 commits.</p>
+        <p class="standup-caption standup-success">✓ Report generated from repository context and commits.</p>
     `;
 }
 

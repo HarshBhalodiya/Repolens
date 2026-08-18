@@ -129,7 +129,7 @@ Analyzes a repository (local path or Git URL) and returns metric reports.
 * **Response**: A comprehensive metrics payload containing commit summaries, daily commit graphs, top author lists, code churn history, and file hotspots.
 
 ### `POST /api/summarize`
-Generates a 3-bullet standup summary of the last 30 commits.
+Generates a 3-bullet standup summary of the repository status, activity, and progress.
 * **Payload**:
   ```json
   {

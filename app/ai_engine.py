@@ -31,11 +31,22 @@ COMMIT_LIMIT = 30
 OLLAMA_BASE_URL = os.getenv("REPOLENS_OLLAMA_BASE_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("REPOLENS_OLLAMA_MODEL", "mistral")
 
-PROMPT_TEMPLATE = """You are an expert technical lead. Analyze the following 30 recent git commit messages and summarize developer progress into EXACTLY 3 clear, actionable bullet points highlighting major features, refactors, or fixes.
-Commits:
+PROMPT_TEMPLATE = """You are an expert technical lead. Analyze the repository metrics and recent git commits provided below to generate exactly 3 concise, high-level bullet points summarizing the repository's state, focus, and developer progress.
+Do NOT just list or summarize the last commits verbatim. Instead, synthesize your insights into exactly 3 points covering:
+1. Tech Stack & Repository Focus: Based on the languages and main active files/hotspots, what is the repository about?
+2. Development Activity & Collaboration: Based on the total commits, authors, and activity status.
+3. Recent Progress & Direction: Synthesize the recent commit messages to describe the work done recently and overall progress.
+
+Repository Metrics:
+- Total Commits: {total_commits}
+- Total Contributors: {total_authors}
+- Top Languages: {languages}
+- File Hotspots: {hotspots}
+
+Recent Commits:
 {commits}
 
-Provide ONLY the 3 bullet points."""
+Provide ONLY the 3 bullet points, using markdown formatting (no introductory or concluding text)."""
 
 OLLAMA_UNAVAILABLE_MESSAGE = (
     "Ollama service unavailable. Please make sure Ollama is running locally."
@@ -96,7 +107,8 @@ def _get_recent_commits(repo_path: str) -> list[str]:
 
 def generate_standup_summary(repo_path: str) -> dict:
     """
-    Generate a 3-bullet standup summary from the last 30 commits via Ollama.
+    Generate a 3-bullet standup summary of the repository status, activity,
+    and progress via Ollama.
 
     Args:
         repo_path (str): Path to the local Git repository
@@ -121,6 +133,24 @@ def generate_standup_summary(repo_path: str) -> dict:
 
     commits_text = "\n".join(commits)
 
+    # Extract repository metrics or fall back to defaults if parsing fails
+    from .git_parser import extract_repo_metrics
+    try:
+        metrics = extract_repo_metrics(repo_path)
+    except Exception as e:
+        logger.warning("Failed to extract repository metrics for summary: %s", e)
+        metrics = {}
+
+    summary_data = metrics.get("summary", {})
+    total_commits = summary_data.get("total_commits", 0)
+    total_authors = summary_data.get("total_authors", 0)
+
+    languages_list = metrics.get("languages", [])
+    languages_str = ", ".join([f"{l['language']} ({l['percentage']}%)" for l in languages_list[:5]]) if languages_list else "Unknown"
+
+    hotspots_list = metrics.get("hotspots", [])
+    hotspots_str = ", ".join([h["file_path"] for h in hotspots_list[:5]]) if hotspots_list else "None"
+
     # Lazy import: keep the app bootable without the optional AI packages.
     try:
         from langchain_core.prompts import PromptTemplate
@@ -143,10 +173,16 @@ def generate_standup_summary(repo_path: str) -> dict:
         llm = OllamaLLM(model=OLLAMA_MODEL, base_url=OLLAMA_BASE_URL)
         prompt = PromptTemplate(
             template=PROMPT_TEMPLATE,
-            input_variables=["commits"],
+            input_variables=["commits", "total_commits", "total_authors", "languages", "hotspots"],
         )
         chain = prompt | llm
-        response_text = chain.invoke({"commits": commits_text})
+        response_text = chain.invoke({
+            "commits": commits_text,
+            "total_commits": total_commits,
+            "total_authors": total_authors,
+            "languages": languages_str,
+            "hotspots": hotspots_str,
+        })
     except Exception as e:
         logger.warning("Ollama call failed for %s: %s", repo_path, e)
         return {"summary": OLLAMA_UNAVAILABLE_MESSAGE, "status": "error"}
