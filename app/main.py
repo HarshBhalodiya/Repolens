@@ -18,6 +18,7 @@ from pydantic import BaseModel
 
 from .ai_engine import answer_codebase_question, generate_standup_summary
 from .db_client import get_cached_analysis, save_analysis_cache
+from .cache_manager import clear_cache_except  # New import for cache cleanup
 from .rag_indexer import index_codebase
 
 def index_and_cleanup(real_path: str, repo_id: str, temp_cleanup_path: str | None):
@@ -270,6 +271,7 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
                             k: v for k, v in cached.items() if not k.startswith("_")
                         }
                         save_analysis_cache(repo_input, commit_hash, cache_payload)
+                clear_cache_except(repo_input)
                 return {"cached": True, "data": cached}
 
         # --- Fresh analysis ---
@@ -307,6 +309,7 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
             }
             save_analysis_cache(repo_input, commit_hash, cache_payload)
 
+        clear_cache_except(repo_input)
         return {"cached": False, "data": metrics}
 
     except HTTPException:
