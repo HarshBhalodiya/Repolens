@@ -229,9 +229,15 @@ async def analyze_repository(request: AnalysisRequest, background_tasks: Backgro
             # Auto-heal: ignore (and implicitly overwrite) stale empty/errored
             # entries so a single bad run can't blank the dashboard forever.
             if cached is not None and _is_valid_cached_payload(cached):
-                # Ensure the cached response has languages (handles migration for older cache entries)
+                # Ensure the cached response has languages and daily_distribution (handles migration for older cache entries)
                 needs_update = False
-                if "languages" not in cached:
+                if "daily_distribution" not in cached:
+                    fresh_metrics = extract_repo_metrics(real_path)
+                    if fresh_metrics and not fresh_metrics.get("_error"):
+                        cached = fresh_metrics
+                        needs_update = True
+
+                if "languages" not in cached and not needs_update:
                     from .git_parser import get_language_distribution
                     cached["languages"] = get_language_distribution(real_path)
                     needs_update = True

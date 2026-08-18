@@ -28,6 +28,9 @@ const valueAvgMsgLen = document.getElementById('value-avg-msg-len');
 const churnChartCanvas = document.getElementById('churnChart');
 const churnChartWrapper = document.getElementById('churn-chart-wrapper');
 const churnEmpty = document.getElementById('churn-empty');
+const timelineChartCanvas = document.getElementById('timelineChart');
+const timelineChartWrapper = document.getElementById('timeline-chart-wrapper');
+const timelineEmpty = document.getElementById('timeline-empty');
 const topAuthorsList = document.getElementById('top-authors-list');
 const hotspotsTable = document.getElementById('hotspots-table');
 const hotspotsEmpty = document.getElementById('hotspots-empty');
@@ -49,11 +52,13 @@ const btnSendSpinner = btnSendChat.querySelector('.btn-spinner');
 
 // Dependency graph
 const graphStatus = document.getElementById('graph-status');
+const graphWrapper = document.querySelector('.graph-wrapper');
 
 // ============================
 // Global State
 // ============================
 let churnChartInstance = null;
+let timelineChartInstance = null;
 let showAllAuthors = false;
 let allAuthorsData = [];
 
@@ -131,6 +136,126 @@ function formatNumber(num) {
 // Chart Rendering
 // ============================
 
+
+// ============================
+// Commit Timeline Chart Rendering
+// ============================
+
+/**
+ * Clear the commit timeline chart and show its empty state.
+ */
+function clearTimelineChart() {
+    if (timelineChartInstance) {
+        timelineChartInstance.destroy();
+        timelineChartInstance = null;
+    }
+    setVisible(timelineChartWrapper, false);
+    setVisible(timelineEmpty, true);
+}
+
+/**
+ * Render (or update) the commit timeline line chart.
+ * @param {Array<{day: string, commits: number}>} dailyData
+ */
+function renderTimelineChart(dailyData) {
+    setVisible(timelineChartWrapper, true);
+    setVisible(timelineEmpty, false);
+
+    if (timelineChartInstance) {
+        timelineChartInstance.destroy();
+        timelineChartInstance = null;
+    }
+
+    const ctx = timelineChartCanvas.getContext('2d');
+
+    const labels = dailyData.map(d => {
+        const dt = new Date(d.day + 'T00:00:00');
+        return dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+    });
+    const values = dailyData.map(d => d.commits);
+    const usePoints = dailyData.length <= 120;
+
+    timelineChartInstance = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: labels,
+            datasets: [{
+                label: 'Commits',
+                data: values,
+                borderColor: 'rgba(88, 166, 255, 1)',
+                backgroundColor: 'rgba(88, 166, 255, 0.1)',
+                fill: true,
+                tension: 0.25,
+                pointRadius: usePoints ? 2 : 0,
+                pointHoverRadius: 5,
+                pointHitRadius: 10,
+                pointBackgroundColor: 'rgba(88, 166, 255, 1)',
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false,
+                },
+                tooltip: {
+                    backgroundColor: '#161B22',
+                    titleColor: '#F0F6FC',
+                    bodyColor: '#8B949E',
+                    borderColor: '#30363D',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 6,
+                    displayColors: false,
+                    callbacks: {
+                        title: function(items) {
+                            return items[0].label;
+                        },
+                        label: function(item) {
+                            return `${item.raw} commit${item.raw !== 1 ? 's' : ''}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: {
+                    grid: {
+                        color: '#30363D',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#8B949E',
+                        font: {
+                            size: 11,
+                            family: "'SFMono-Regular', Consolas, monospace",
+                        },
+                        maxRotation: 45,
+                        autoSkipPadding: 15,
+                    },
+                },
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#30363D',
+                        drawBorder: false,
+                    },
+                    ticks: {
+                        color: '#8B949E',
+                        font: {
+                            size: 11,
+                        },
+                        precision: 0,
+                    },
+                }
+            },
+            animation: {
+                duration: 600,
+                easing: 'easeOutQuart',
+            },
+        }
+    });
+}
 
 // ============================
 // Code Churn Chart Rendering
@@ -489,6 +614,13 @@ function populateDashboard(data) {
         renderLanguages(data.languages);
     } else {
         renderLanguages([]);
+    }
+
+    // Render commit timeline chart
+    if (data.daily_distribution && Array.isArray(data.daily_distribution) && data.daily_distribution.length > 0) {
+        renderTimelineChart(data.daily_distribution);
+    } else {
+        clearTimelineChart();
     }
 
     // Render code churn chart
@@ -913,6 +1045,7 @@ function clearGraph() {
 function renderDependencyGraph(data) {
     if (typeof d3 === 'undefined') {
         setGraphStatus('D3.js failed to load (CDN unreachable).', 'error');
+        setVisible(graphWrapper, false);
         return;
     }
 
@@ -930,6 +1063,7 @@ function renderDependencyGraph(data) {
 
     if (!nodes.length) {
         setGraphStatus('No files to display.', 'info');
+        setVisible(graphWrapper, false);
         return;
     }
 
@@ -1051,6 +1185,7 @@ async function loadDependencyGraph() {
     }
 
     setGraphStatus('Parsing dependencies with Tree-sitter...', 'active');
+    setVisible(graphWrapper, false);
 
     try {
         const response = await fetch('/api/dependencies', {
@@ -1076,6 +1211,7 @@ async function loadDependencyGraph() {
             clearGraph();
             graphData = null;
             setGraphStatus(payload.message || 'Failed to build the dependency graph.', 'error');
+            setVisible(graphWrapper, false);
             return;
         }
 
@@ -1083,11 +1219,13 @@ async function loadDependencyGraph() {
             clearGraph();
             graphData = null;
             setGraphStatus(payload.message || 'No files to display.', 'info');
+            setVisible(graphWrapper, false);
             return;
         }
 
         graphData = payload;
         renderDependencyGraph(payload);
+        setVisible(graphWrapper, true);
         setGraphStatus(
             `Graph: ${payload.nodes.length} files, ${payload.edges.length} dependencies`,
             'success'
@@ -1096,6 +1234,7 @@ async function loadDependencyGraph() {
         clearGraph();
         graphData = null;
         setGraphStatus(error.message || 'Failed to build the dependency graph.', 'error');
+        setVisible(graphWrapper, false);
     }
 }
 
