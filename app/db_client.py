@@ -110,8 +110,8 @@ def get_cached_analysis(commit_hash: str) -> dict | None:
                 return data
         except httpx.HTTPStatusError as e:
             logger.warning(
-                "Supabase cache read failed (HTTP %s); using local cache.",
-                e.response.status_code,
+                "Supabase cache read failed (HTTP %s): %s; using local cache.",
+                e.response.status_code, e.response.text,
             )
         except Exception as e:  # noqa: BLE001 - fallback is intentional
             logger.debug("Supabase cache read unavailable (%s); using local cache.", e)

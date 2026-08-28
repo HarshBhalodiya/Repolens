@@ -21,7 +21,7 @@ import os
 logger = logging.getLogger(__name__)
 
 # Directories that are never walked into.
-IGNORED_DIRS = {".git", "node_modules", "venv", "__pycache__", "dist", "build"}
+IGNORED_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "env", ".env", "chroma_db", ".pytest_cache", ".idea", ".vscode"}
 
 # File extensions that get indexed.
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".html", ".css", ".json", ".md"}
@@ -211,8 +211,8 @@ def index_codebase(repo_path: str, repo_id: str | None = None) -> dict:
         }
 
     # Clear stale documents for this repo in Supabase.
+    client = _get_http_client()
     try:
-        client = _get_http_client()
         delete_resp = client.delete("code_embeddings", params={"repo_path": f"eq.{db_repo_path}"})
         delete_resp.raise_for_status()
     except Exception as e:
@@ -246,7 +246,7 @@ def index_codebase(repo_path: str, repo_id: str | None = None) -> dict:
     try:
         for i in range(0, len(payload), BATCH_SIZE):
             batch = payload[i : i + BATCH_SIZE]
-            upload_resp = client.post("code_embeddings", json=batch)
+            upload_resp = client.post("code_embeddings", json=batch, timeout=60.0)
             upload_resp.raise_for_status()
     except Exception as e:
         logger.warning("Upload of embeddings to Supabase failed: %s", e)

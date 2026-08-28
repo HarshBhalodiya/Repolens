@@ -28,7 +28,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 # Directories never walked into (kept in sync with rag_indexer.py).
-IGNORED_DIRS = {".git", "node_modules", "venv", "__pycache__", "dist", "build"}
+IGNORED_DIRS = {".git", "node_modules", "venv", ".venv", "__pycache__", "dist", "build", "env", ".env", "chroma_db", ".pytest_cache", ".idea", ".vscode"}
 
 # File extensions analyzed for import statements.
 SUPPORTED_EXTENSIONS = {".py", ".js", ".ts", ".jsx", ".tsx"}

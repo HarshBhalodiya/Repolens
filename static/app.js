@@ -132,6 +132,65 @@ function formatNumber(num) {
     return Number(num).toLocaleString();
 }
 
+/**
+ * Animate a number counter from 0 to the target value.
+ * @param {HTMLElement} element - The element to update
+ * @param {number} target - The target number
+ * @param {number} [duration=800] - Animation duration in ms
+ */
+function animateCounter(element, target, duration = 800) {
+    if (!element || target == null || isNaN(target)) return;
+    const start = 0;
+    const startTime = performance.now();
+    function update(currentTime) {
+        const elapsed = currentTime - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        // Ease-out cubic for smooth deceleration
+        const eased = 1 - Math.pow(1 - progress, 3);
+        const current = Math.round(start + (target - start) * eased);
+        element.textContent = formatNumber(current);
+        if (progress < 1) {
+            requestAnimationFrame(update);
+        }
+    }
+    requestAnimationFrame(update);
+}
+
+/**
+ * Copy text to clipboard and briefly show confirmation.
+ * @param {string} text - Text to copy
+ * @param {HTMLElement} button - Button element to show feedback on
+ */
+async function copyToClipboard(text, button) {
+    try {
+        await navigator.clipboard.writeText(text);
+        if (button) {
+            const original = button.innerHTML;
+            button.innerHTML = '<span class="btn-icon">✓</span> Copied!';
+            button.classList.add('copied');
+            setTimeout(() => {
+                button.innerHTML = original;
+                button.classList.remove('copied');
+            }, 1500);
+        }
+    } catch (err) {
+        // Fallback for older browsers
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+        if (button) {
+            const original = button.innerHTML;
+            button.innerHTML = '<span class="btn-icon">✓</span> Copied!';
+            setTimeout(() => { button.innerHTML = original; }, 1500);
+        }
+    }
+}
+
 // ============================
 // Chart Rendering
 // ============================
@@ -520,6 +579,7 @@ const LANGUAGE_COLORS = {
     'Java': '#b07219',
     'C++': '#f34b7d',
     'C': '#555555',
+    'C/C++ Header': '#A8B9CC',
     'C#': '#178600',
     'SQL': '#e98615',
     'Shell': '#89e051',
@@ -594,14 +654,28 @@ function escapeHtml(text) {
  * @param {Object} data - Response from /api/analyze
  */
 function populateDashboard(data) {
-    // Update summary cards
+    // Update summary cards with animated counters
     if (data.summary) {
-        valueTotalCommits.textContent = formatNumber(data.summary.total_commits);
-        valueTotalAuthors.textContent = formatNumber(data.summary.total_authors);
+        animateCounter(valueTotalCommits, data.summary.total_commits);
+        animateCounter(valueTotalAuthors, data.summary.total_authors);
     }
-    valueAvgMsgLen.textContent = data.avg_message_length != null
-        ? `${data.avg_message_length} chars`
-        : '\u2014';
+    if (data.avg_message_length != null) {
+        // For non-integer values, animate then append suffix
+        const target = data.avg_message_length;
+        const duration = 800;
+        const startTime = performance.now();
+        function updateAvg(currentTime) {
+            const elapsed = currentTime - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            const eased = 1 - Math.pow(1 - progress, 3);
+            const current = (target * eased).toFixed(1);
+            valueAvgMsgLen.textContent = `${current} chars`;
+            if (progress < 1) requestAnimationFrame(updateAvg);
+        }
+        requestAnimationFrame(updateAvg);
+    } else {
+        valueAvgMsgLen.textContent = '\u2014';
+    }
 
 
     // Render top authors
@@ -750,6 +824,14 @@ async function handleAnalyzeClick(forceRefresh) {
         populateDashboard(payload.data || {});
         loadDependencyGraph();
 
+        // Save analyzed repo to localStorage history
+        saveToHistory(repoPath.trim());
+
+        // Smooth scroll to results
+        setTimeout(() => {
+            dashboard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 100);
+
     } catch (error) {
         // Show error in the banner
         showError(error.message || 'An unexpected error occurred while analyzing the repository.');
@@ -832,9 +914,20 @@ function renderStandupSummary(payload) {
     ).join('');
 
     standupContent.innerHTML = `
-        <ul class="standup-list">${listHtml}</ul>
-        <p class="standup-caption standup-success">✓ Report generated from repository context and commits.</p>
+        <div class="standup-output">
+            <button class="copy-btn standup-copy-btn" title="Copy report">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>
+                Copy
+            </button>
+            <ul class="standup-list">${listHtml}</ul>
+            <p class="standup-caption standup-success">✓ Report generated from repository context and commits.</p>
+        </div>
     `;
+    // Wire up the copy button
+    const standupCopyBtn = standupContent.querySelector('.standup-copy-btn');
+    if (standupCopyBtn) {
+        standupCopyBtn.addEventListener('click', () => copyToClipboard(text, standupCopyBtn));
+    }
 }
 
 
@@ -927,7 +1020,19 @@ function appendChatMessage(role, text) {
     if (role === 'user') {
         div.innerHTML = `<div class="chat-bubble user-bubble">${escapeHtml(text)}</div>`;
     } else {
-        div.innerHTML = `<div class="chat-bubble ai-bubble">${formatChatMessage(text)}</div>`;
+        const bubble = document.createElement('div');
+        bubble.className = 'chat-bubble ai-bubble';
+        bubble.innerHTML = formatChatMessage(text);
+
+        // Add copy button for AI responses
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.title = 'Copy response';
+        copyBtn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>';
+        copyBtn.addEventListener('click', () => copyToClipboard(text, copyBtn));
+        bubble.appendChild(copyBtn);
+
+        div.appendChild(bubble);
     }
     chatHistory.appendChild(div);
     chatHistory.scrollTop = chatHistory.scrollHeight;
@@ -961,6 +1066,18 @@ function removeTypingIndicator() {
 async function handleSendChatClick() {
     const query = chatInput.value.trim();
     if (!query) return;
+
+    // Validate that a repository has been analyzed
+    const repoPath = repoPathInput.value.trim();
+    if (!repoPath) {
+        appendChatMessage('ai', 'Please enter a repository path and click Analyze first.');
+        return;
+    }
+    // Check if the dashboard is visible (meaning analysis was successful)
+    if (dashboard.classList.contains('hidden')) {
+        appendChatMessage('ai', 'Please analyze a repository first before asking questions.');
+        return;
+    }
 
     appendChatMessage('user', query);
     chatInput.value = '';
@@ -1239,17 +1356,94 @@ async function loadDependencyGraph() {
 }
 
 // ============================
-// Event Listeners
+// Repository History (localStorage)
 // ============================
+const HISTORY_KEY = 'repolens_history';
+const MAX_HISTORY = 8;
 
-// Analyze button click
-btnAnalyze.addEventListener('click', () => handleAnalyzeClick(false));
+/**
+ * Load recently analyzed repos from localStorage.
+ * @returns {string[]}
+ */
+function loadHistory() {
+    try {
+        const raw = localStorage.getItem(HISTORY_KEY);
+        return raw ? JSON.parse(raw) : [];
+    } catch { return []; }
+}
+
+/**
+ * Save a repo path to history (most recent first, deduped).
+ * @param {string} repoPath
+ */
+function saveToHistory(repoPath) {
+    if (!repoPath) return;
+    const history = loadHistory().filter(h => h !== repoPath);
+    history.unshift(repoPath);
+    localStorage.setItem(HISTORY_KEY, JSON.stringify(history.slice(0, MAX_HISTORY)));
+}
+
+/**
+ * Render a dropdown of recent repos below the input.
+ */
+function renderHistoryDropdown() {
+    // Remove existing dropdown
+    const existing = document.getElementById('history-dropdown');
+    if (existing) existing.remove();
+
+    const history = loadHistory();
+    if (history.length === 0 || repoPathInput.value.trim()) return;
+
+    const dropdown = document.createElement('div');
+    dropdown.id = 'history-dropdown';
+    dropdown.className = 'history-dropdown';
+    history.forEach(path => {
+        const item = document.createElement('div');
+        item.className = 'history-item';
+        item.innerHTML = `<span class="history-icon">📁</span><span class="history-path">${escapeHtml(path)}</span>`;
+        item.addEventListener('click', () => {
+            repoPathInput.value = path;
+            dropdown.remove();
+            repoPathInput.focus();
+        });
+        dropdown.appendChild(item);
+    });
+
+    const inputGroup = document.querySelector('.input-group');
+    inputGroup.style.position = 'relative';
+    inputGroup.appendChild(dropdown);
+}
+
+/**
+ * Remove the history dropdown.
+ */
+function removeHistoryDropdown() {
+    const existing = document.getElementById('history-dropdown');
+    if (existing) existing.remove();
+}
 
 
 // Enter key in input field
 repoPathInput.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' && !btnAnalyze.disabled) {
         handleAnalyzeClick(false);
+    }
+    // Dismiss history dropdown when user starts typing
+    if (event.key !== 'Enter') {
+        removeHistoryDropdown();
+    }
+});
+
+// Show history dropdown when input is focused and empty
+repoPathInput.addEventListener('focus', () => {
+    renderHistoryDropdown();
+});
+
+// Dismiss history dropdown when clicking outside the input group
+document.addEventListener('mousedown', (event) => {
+    const inputGroup = document.querySelector('.input-group');
+    if (inputGroup && !inputGroup.contains(event.target)) {
+        removeHistoryDropdown();
     }
 });
 
@@ -1280,4 +1474,10 @@ if (btnToggleAuthors) {
 document.addEventListener('DOMContentLoaded', () => {
     // Focus the input on load
     repoPathInput.focus();
+
+    // Add subtle pulse animation to the Analyze button to draw attention
+    btnAnalyze.classList.add('btn-analyze-pulse');
+    btnAnalyze.addEventListener('click', () => {
+        btnAnalyze.classList.remove('btn-analyze-pulse');
+    }, { once: true });
 });
